@@ -32,8 +32,10 @@ interface PlayerContextType {
 }
 
 const PlayerContext = createContext<PlayerContextType | null>(null);
-
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
+
+// Cache resolved stream URLs so we don't re-fetch for same song
+const streamUrlCache = new Map<string, string>();
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -49,62 +51,101 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<"none" | "one" | "all">("none");
   const resolveRef = useRef<string | null>(null);
+  const queueRef = useRef(queue);
+  const queueIndexRef = useRef(queueIndex);
+  const repeatRef = useRef(repeat);
 
-  // Initialize audio
+  useEffect(() => { queueRef.current = queue; }, [queue]);
+  useEffect(() => { queueIndexRef.current = queueIndex; }, [queueIndex]);
+  useEffect(() => { repeatRef.current = repeat; }, [repeat]);
+
+  // Initialize audio element
   useEffect(() => {
     const audio = new Audio();
     audio.volume = volume;
     audio.preload = "auto";
+    audio.crossOrigin = "anonymous";
     audioRef.current = audio;
 
     const onTimeUpdate = () => setProgress(audio.currentTime);
-    const onDuration = () => setDuration(audio.duration);
+    const onDuration = () => { if (!isNaN(audio.duration)) setDuration(audio.duration); };
     const onWaiting = () => setIsBuffering(true);
     const onCanPlay = () => setIsBuffering(false);
-    const onEnded = () => handleEnded();
-    const onPlay = () => setIsPlaying(true);
+    const onPlay = () => { setIsPlaying(true); setIsBuffering(false); };
     const onPause = () => setIsPlaying(false);
+    const onError = (e: Event) => {
+      const err = (e.target as HTMLAudioElement).error;
+      console.warn("Audio error:", err?.message);
+      setIsBuffering(false);
+    };
+    const onEnded = () => {
+      const r = repeatRef.current;
+      const q = queueRef.current;
+      const qi = queueIndexRef.current;
+      if (r === "one") {
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      } else if (q.length > 1) {
+        const nextIdx = (qi + 1) % q.length;
+        queueIndexRef.current = nextIdx;
+        setQueueIndex(nextIdx);
+        internalPlay(q[nextIdx]);
+      } else if (r === "all" && q.length > 0) {
+        internalPlay(q[0]);
+      }
+    };
 
     audio.addEventListener("timeupdate", onTimeUpdate);
     audio.addEventListener("durationchange", onDuration);
     audio.addEventListener("waiting", onWaiting);
     audio.addEventListener("canplay", onCanPlay);
-    audio.addEventListener("ended", onEnded);
     audio.addEventListener("play", onPlay);
     audio.addEventListener("pause", onPause);
+    audio.addEventListener("error", onError);
+    audio.addEventListener("ended", onEnded);
 
     return () => {
       audio.removeEventListener("timeupdate", onTimeUpdate);
       audio.removeEventListener("durationchange", onDuration);
       audio.removeEventListener("waiting", onWaiting);
       audio.removeEventListener("canplay", onCanPlay);
-      audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("play", onPlay);
       audio.removeEventListener("pause", onPause);
+      audio.removeEventListener("error", onError);
+      audio.removeEventListener("ended", onEnded);
       audio.pause();
+      audio.src = "";
     };
   }, []);
 
   // Media Session API
   useEffect(() => {
     if (!("mediaSession" in navigator) || !currentSong) return;
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: currentSong.title,
-      artist: currentSong.artist,
-      artwork: [{ src: currentSong.thumbnail, sizes: "512x512", type: "image/jpeg" }]
-    });
-    navigator.mediaSession.setActionHandler("play", () => resume());
-    navigator.mediaSession.setActionHandler("pause", () => pause());
-    navigator.mediaSession.setActionHandler("nexttrack", () => next());
-    navigator.mediaSession.setActionHandler("previoustrack", () => prev());
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentSong.title,
+        artist: currentSong.artist,
+        artwork: [
+          { src: currentSong.thumbnail, sizes: "512x512", type: "image/jpeg" },
+          { src: currentSong.thumbnail, sizes: "256x256", type: "image/jpeg" },
+        ]
+      });
+      navigator.mediaSession.setActionHandler("play", () => resume());
+      navigator.mediaSession.setActionHandler("pause", () => pause());
+      navigator.mediaSession.setActionHandler("nexttrack", () => next());
+      navigator.mediaSession.setActionHandler("previoustrack", () => prev());
+      navigator.mediaSession.setActionHandler("seekto", (d) => {
+        if (d.seekTime !== undefined) seek(d.seekTime);
+      });
+    } catch {}
   }, [currentSong]);
 
-  // Load favorites from Supabase or localStorage
+  // Load favorites
   useEffect(() => {
-    const stored = localStorage.getItem("musika-favorites");
-    if (stored) {
-      try { setFavorites(new Set(JSON.parse(stored))); } catch {}
-    }
+    try {
+      const stored = localStorage.getItem("musika-favorites");
+      if (stored) setFavorites(new Set(JSON.parse(stored)));
+    } catch {}
     loadFavoritesFromDB();
   }, []);
 
@@ -117,83 +158,104 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }
 
-  function handleEnded() {
-    if (repeat === "one") {
-      const audio = audioRef.current;
-      if (audio) { audio.currentTime = 0; audio.play(); }
-    } else if (queue.length > 1) {
-      next();
-    } else if (repeat === "all" && queue.length > 0) {
-      playSong(queue[0], queue);
-    }
-  }
-
   async function resolveStreamUrl(song: Song): Promise<string> {
-    // For YouTube, use download API to get MP3 URL
-    if (song.source === "youtube" && song.url) {
-      try {
-        const res = await fetch(`${BASE}/api/music/download?url=${encodeURIComponent(song.url)}&source=youtube`);
-        const data = await res.json();
-        if (data.success && data.download_url) {
-          return `${BASE}/api/music/stream?url=${encodeURIComponent(data.download_url)}`;
-        }
-      } catch {}
+    // Return cached URL if available
+    if (streamUrlCache.has(song.videoId)) {
+      return streamUrlCache.get(song.videoId)!;
     }
-    // For other sources, try download endpoint
+
+    let streamUrl: string | null = null;
+
+    // Try download API for all sources
     if (song.url) {
       try {
-        const res = await fetch(`${BASE}/api/music/download?url=${encodeURIComponent(song.url)}&source=${song.source}`);
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 20000);
+        const res = await fetch(
+          `${BASE}/api/music/download?url=${encodeURIComponent(song.url)}&source=${song.source}`,
+          { signal: controller.signal }
+        );
+        clearTimeout(timer);
         const data = await res.json();
         if (data.success && data.download_url) {
-          return `${BASE}/api/music/stream?url=${encodeURIComponent(data.download_url)}`;
+          // Stream through our proxy to avoid CORS issues
+          streamUrl = `${BASE}/api/music/stream?url=${encodeURIComponent(data.download_url)}`;
         }
-      } catch {}
+      } catch (err) {
+        console.warn("Download API failed:", err);
+      }
     }
-    return `${BASE}/api/music/stream?url=${encodeURIComponent(song.url)}`;
+
+    // Fallback: stream directly from song URL
+    if (!streamUrl && song.url) {
+      streamUrl = `${BASE}/api/music/stream?url=${encodeURIComponent(song.url)}`;
+    }
+
+    if (!streamUrl) throw new Error("Tidak dapat memuat lagu ini.");
+
+    // Cache for future use (cache up to 20 entries)
+    if (streamUrlCache.size > 20) {
+      const firstKey = streamUrlCache.keys().next().value;
+      if (firstKey) streamUrlCache.delete(firstKey);
+    }
+    streamUrlCache.set(song.videoId, streamUrl);
+
+    return streamUrl;
   }
 
-  const playSong = useCallback(async (song: Song, newQueue?: Song[]) => {
+  async function internalPlay(song: Song) {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (newQueue) {
-      setQueue(newQueue);
-      const idx = newQueue.findIndex(s => s.videoId === song.videoId);
-      setQueueIndex(idx >= 0 ? idx : 0);
-    }
-
     setCurrentSong(song);
     setIsBuffering(true);
+    setProgress(0);
+    setDuration(0);
     audio.pause();
     audio.src = "";
 
-    // Track in DB
     recordHistory(song);
 
-    // Resolve stream URL
     const songKey = song.videoId;
     resolveRef.current = songKey;
 
     try {
       const streamUrl = await resolveStreamUrl(song);
-      if (resolveRef.current !== songKey) return; // Song changed while resolving
+      if (resolveRef.current !== songKey) return; // Song changed mid-resolve
+
       audio.src = streamUrl;
+      audio.load();
       await audio.play();
       setIsPlaying(true);
+
+      if ("mediaSession" in navigator) {
+        navigator.mediaSession.playbackState = "playing";
+      }
     } catch (err: any) {
-      toast({ title: "Playback error", description: err.message, variant: "destructive" });
+      if (resolveRef.current !== songKey) return;
+      console.error("Playback failed:", err);
+      // Remove from cache so next attempt re-fetches
+      streamUrlCache.delete(song.videoId);
+      toast({
+        title: "Gagal memutar",
+        description: "Lagu tidak dapat diputar. Coba lagi.",
+        variant: "destructive"
+      });
       setIsBuffering(false);
       setIsPlaying(false);
     }
+  }
 
-    // Update Media Session
-    if ("mediaSession" in navigator) {
-      navigator.mediaSession.metadata = new MediaMetadata({
-        title: song.title,
-        artist: song.artist,
-        artwork: [{ src: song.thumbnail, sizes: "512x512", type: "image/jpeg" }]
-      });
+  const playSong = useCallback(async (song: Song, newQueue?: Song[]) => {
+    if (newQueue) {
+      setQueue(newQueue);
+      queueRef.current = newQueue;
+      const idx = newQueue.findIndex(s => s.videoId === song.videoId);
+      const newIdx = idx >= 0 ? idx : 0;
+      setQueueIndex(newIdx);
+      queueIndexRef.current = newIdx;
     }
+    await internalPlay(song);
   }, []);
 
   async function recordHistory(song: Song) {
@@ -226,36 +288,38 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }
 
   function next() {
-    if (queue.length === 0) return;
-    let nextIdx: number;
-    if (shuffle) {
-      nextIdx = Math.floor(Math.random() * queue.length);
-    } else {
-      nextIdx = (queueIndex + 1) % queue.length;
-    }
+    const q = queueRef.current;
+    if (q.length === 0) return;
+    const nextIdx = shuffle
+      ? Math.floor(Math.random() * q.length)
+      : (queueIndexRef.current + 1) % q.length;
     setQueueIndex(nextIdx);
-    playSong(queue[nextIdx], queue);
+    queueIndexRef.current = nextIdx;
+    internalPlay(q[nextIdx]);
   }
 
   function prev() {
-    if (queue.length === 0) return;
+    const q = queueRef.current;
     const audio = audioRef.current;
     if (audio && audio.currentTime > 3) {
       audio.currentTime = 0;
       return;
     }
-    const prevIdx = (queueIndex - 1 + queue.length) % queue.length;
+    if (q.length === 0) return;
+    const prevIdx = (queueIndexRef.current - 1 + q.length) % q.length;
     setQueueIndex(prevIdx);
-    playSong(queue[prevIdx], queue);
+    queueIndexRef.current = prevIdx;
+    internalPlay(q[prevIdx]);
   }
 
   function setVolume(v: number) {
-    setVolumeState(v);
-    if (audioRef.current) audioRef.current.volume = v;
+    const clamped = Math.max(0, Math.min(1, v));
+    setVolumeState(clamped);
+    if (audioRef.current) audioRef.current.volume = clamped;
   }
 
   function seek(t: number) {
-    if (audioRef.current) {
+    if (audioRef.current && !isNaN(t)) {
       audioRef.current.currentTime = t;
       setProgress(t);
     }
@@ -263,19 +327,34 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   function toggleShuffle() { setShuffle(s => !s); }
   function toggleRepeat() {
-    setRepeat(r => r === "none" ? "all" : r === "all" ? "one" : "none");
+    setRepeat(r => {
+      const next = r === "none" ? "all" : r === "all" ? "one" : "none";
+      repeatRef.current = next;
+      return next;
+    });
   }
 
   function addToQueue(song: Song) {
-    setQueue(q => [...q, song]);
-    toast({ title: "Added to queue", description: song.title });
+    setQueue(q => {
+      const next = [...q, song];
+      queueRef.current = next;
+      return next;
+    });
+    toast({ title: "✓ Ditambahkan ke antrean", description: song.title });
   }
 
   function removeFromQueue(videoId: string) {
-    setQueue(q => q.filter(s => s.videoId !== videoId));
+    setQueue(q => {
+      const next = q.filter(s => s.videoId !== videoId);
+      queueRef.current = next;
+      return next;
+    });
   }
 
-  function clearQueue() { setQueue([]); }
+  function clearQueue() {
+    setQueue([]);
+    queueRef.current = [];
+  }
 
   function isFavorite(videoId: string) { return favorites.has(videoId); }
 
@@ -284,13 +363,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const newFavs = new Set(favorites);
     if (isFav) {
       newFavs.delete(song.videoId);
-      toast({ title: "Removed from favorites" });
+      toast({ title: "Dihapus dari favorit" });
     } else {
       newFavs.add(song.videoId);
-      toast({ title: "Added to favorites ♥", description: song.title });
+      toast({ title: "✓ Ditambahkan ke favorit", description: song.title });
     }
     setFavorites(newFavs);
-    localStorage.setItem("musika-favorites", JSON.stringify([...newFavs]));
+    try { localStorage.setItem("musika-favorites", JSON.stringify([...newFavs])); } catch {}
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -307,7 +386,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           thumbnail: song.thumbnail,
           duration: song.duration,
           source: song.source,
-          url: song.url
+          url: song.url,
+          liked_at: new Date().toISOString()
         });
       }
     } catch {}

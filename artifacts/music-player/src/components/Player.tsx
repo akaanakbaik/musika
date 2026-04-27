@@ -1,34 +1,31 @@
 import React, { useState } from "react";
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Maximize2, Minimize2, Download, Heart, ListMusic, Shuffle, Repeat, Repeat1, X } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Maximize2, Minimize2, Download, Heart, ListMusic, Shuffle, Repeat, Repeat1, X, ChevronDown } from "lucide-react";
 import { usePlayer } from "@/lib/PlayerContext";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/hooks/use-toast";
 import { sourceLabels } from "@/lib/musicApi";
 import { YouTubeIcon, SpotifyIcon, AppleMusicIcon, SoundCloudIcon, GlobeIcon } from "@/components/SourceIcon";
+import { useAppSettings } from "@/lib/AppSettingsContext";
 
 const SOURCE_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  youtube: YouTubeIcon,
-  spotify: SpotifyIcon,
-  apple: AppleMusicIcon,
-  soundcloud: SoundCloudIcon,
+  youtube: YouTubeIcon, spotify: SpotifyIcon, apple: AppleMusicIcon, soundcloud: SoundCloudIcon,
 };
-
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
-function formatTime(seconds: number) {
-  if (isNaN(seconds)) return "0:00";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
+function formatTime(s: number) {
+  if (isNaN(s) || s < 0) return "0:00";
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
 export function Player() {
   const {
     currentSong, isPlaying, progress, duration, volume, isBuffering,
-    shuffle, repeat,
-    pause, resume, next, prev, setVolume, seek, toggleShuffle, toggleRepeat,
-    toggleFavorite, isFavorite, queue, removeFromQueue
+    shuffle, repeat, pause, resume, next, prev, setVolume, seek,
+    toggleShuffle, toggleRepeat, toggleFavorite, isFavorite, queue, removeFromQueue
   } = usePlayer();
+  const { theme, accentColor } = useAppSettings();
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -38,13 +35,12 @@ export function Player() {
 
   if (!currentSong) return null;
 
+  const isDark = theme === "dark";
   const isFav = isFavorite(currentSong.videoId);
   const srcInfo = sourceLabels[currentSong.source] || { label: currentSong.source, bg: "bg-gray-600" };
   const SourceIconComp = SOURCE_ICON_MAP[currentSong.source] || GlobeIcon;
-  const progressPct = duration ? (progress / duration) * 100 : 0;
 
   const handlePlayPause = () => { if (isPlaying) pause(); else resume(); };
-
   const handleMute = () => {
     if (isMuted) { setVolume(prevVolume); setIsMuted(false); }
     else { setPrevVolume(volume); setVolume(0); setIsMuted(true); }
@@ -54,7 +50,7 @@ export function Player() {
     if (!currentSong.url) return;
     setIsDownloading(true);
     try {
-      toast({ title: "Starting download…", description: currentSong.title });
+      toast({ title: "Mengunduh…", description: currentSong.title });
       const res = await fetch(`${BASE}/api/music/download?url=${encodeURIComponent(currentSong.url)}&source=${currentSong.source}`);
       const data = await res.json();
       if (data.success && data.download_url) {
@@ -65,142 +61,151 @@ export function Player() {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        toast({ title: "Download started" });
+        toast({ title: "✓ Unduhan dimulai" });
       } else {
-        throw new Error(data.error || "No download URL");
+        throw new Error(data.error || "Gagal mendapatkan URL unduhan");
       }
     } catch (e: any) {
-      toast({ title: "Download failed", description: e.message, variant: "destructive" });
+      toast({ title: "Gagal mengunduh", description: e.message, variant: "destructive" });
     } finally {
       setIsDownloading(false);
     }
   };
 
   const RepeatIcon = repeat === "one" ? Repeat1 : Repeat;
+  const miniPlayerBg = isDark ? "bg-[#181818] border-white/10" : "bg-white border-black/10";
+  const miniTextP = isDark ? "text-white" : "text-[#121212]";
+  const miniTextS = isDark ? "text-white/50" : "text-[#121212]/50";
 
   return (
     <>
-      {/* Mini Player */}
-      <div className="fixed bottom-16 md:bottom-0 left-0 right-0 h-[72px] md:h-[90px] bg-[#181818] border-t border-white/10 flex items-center px-3 md:px-6 z-50 gap-4">
-        
-        {/* Song info */}
-        <div className="flex items-center gap-3 w-[30%] min-w-0">
-          <img
-            src={currentSong.thumbnail}
-            alt={currentSong.title}
-            className="w-14 h-14 rounded object-cover cursor-pointer flex-shrink-0"
-            onClick={() => setIsExpanded(true)}
-            onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/56x56/333/999?text=♪"; }}
-          />
-          <div className="flex-1 min-w-0 hidden md:block">
-            <p
-              className="text-white text-sm font-medium truncate cursor-pointer hover:underline"
-              onClick={() => setIsExpanded(true)}
-            >{currentSong.title}</p>
-            <p className="text-white/60 text-xs truncate">{currentSong.artist}</p>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${srcInfo.bg} text-white font-medium flex items-center gap-1`}>
-              <SourceIconComp className="w-2.5 h-2.5" /> {srcInfo.label}
-            </span>
-          </div>
-          <button
-            onClick={() => toggleFavorite(currentSong)}
-            className={`p-1 hidden md:block flex-shrink-0 ${isFav ? "text-[#1DB954]" : "text-white/40 hover:text-white"}`}
-          >
-            <Heart className={`w-4 h-4 ${isFav ? "fill-current" : ""}`} />
-          </button>
+      {/* ===== MINI PLAYER ===== */}
+      <div className={`fixed bottom-[60px] md:bottom-0 left-0 right-0 z-50 border-t ${miniPlayerBg} shadow-lg`}>
+        {/* Progress bar - thin strip at top */}
+        <div className={`w-full h-0.5 ${isDark ? "bg-white/10" : "bg-black/10"} cursor-pointer`} onClick={e => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          const pct = (e.clientX - rect.left) / rect.width;
+          seek(pct * (duration || 0));
+        }}>
+          <div className="h-full transition-all" style={{ width: `${duration ? (progress / duration) * 100 : 0}%`, background: accentColor }} />
         </div>
 
-        {/* Controls */}
-        <div className="flex flex-col items-center gap-1 flex-1 max-w-[600px]">
-          <div className="flex items-center gap-4 md:gap-6">
-            <button onClick={toggleShuffle} className={`hidden md:block transition-colors ${shuffle ? "text-[#1DB954]" : "text-white/50 hover:text-white"}`}>
-              <Shuffle className="w-4 h-4" />
+        <div className="flex items-center px-3 md:px-6 h-[68px] md:h-[80px] gap-3">
+          {/* Song info */}
+          <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onClick={() => setIsExpanded(true)}>
+            <div className="relative flex-shrink-0">
+              <img
+                src={currentSong.thumbnail}
+                alt={currentSong.title}
+                className="w-12 h-12 rounded-lg object-cover"
+                onError={e => { (e.target as HTMLImageElement).src = "https://placehold.co/48x48/333/999?text=♪"; }}
+              />
+              {isPlaying && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/30">
+                  <div className="flex gap-0.5">
+                    {[0, 1, 2].map(i => (
+                      <div key={i} className="w-0.5 rounded-full bg-white" style={{ animation: "musicBar 0.8s ease-in-out infinite", animationDelay: `${i * 0.1}s`, height: "10px" }} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-semibold truncate ${miniTextP}`}>{currentSong.title}</p>
+              <p className={`text-xs truncate ${miniTextS}`}>{currentSong.artist}</p>
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Heart - mobile too */}
+            <button onClick={() => toggleFavorite(currentSong)} className={`p-1.5 ${isFav ? "text-red-400" : miniTextS} transition-colors`}>
+              <Heart className={`w-4 h-4 ${isFav ? "fill-current" : ""}`} />
             </button>
-            <button onClick={prev} className="text-white/70 hover:text-white">
+
+            {/* Prev — desktop only */}
+            <button onClick={prev} className={`hidden md:block p-1.5 ${miniTextS} hover:${miniTextP} transition-colors`}>
               <SkipBack className="w-5 h-5 fill-current" />
             </button>
+
+            {/* Play/Pause */}
             <button
               onClick={handlePlayPause}
-              className="w-9 h-9 md:w-8 md:h-8 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-transform"
+              className="w-10 h-10 rounded-full flex items-center justify-center shadow-md active:scale-90 transition-transform"
+              style={{ background: accentColor }}
             >
               {isBuffering ? (
                 <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
               ) : isPlaying ? (
-                <Pause className="w-4 h-4 fill-current" />
+                <Pause className="w-4 h-4 fill-black text-black" />
               ) : (
-                <Play className="w-4 h-4 fill-current ml-0.5" />
+                <Play className="w-4 h-4 fill-black text-black ml-0.5" />
               )}
             </button>
-            <button onClick={next} className="text-white/70 hover:text-white">
+
+            {/* Next */}
+            <button onClick={next} className={`p-1.5 ${miniTextS} hover:${miniTextP} transition-colors`}>
               <SkipForward className="w-5 h-5 fill-current" />
             </button>
-            <button onClick={toggleRepeat} className={`hidden md:block transition-colors ${repeat !== "none" ? "text-[#1DB954]" : "text-white/50 hover:text-white"}`}>
-              <RepeatIcon className="w-4 h-4" />
+
+            {/* Expand — desktop shows more controls */}
+            <button onClick={() => setIsExpanded(true)} className={`hidden md:block p-1.5 ${miniTextS} hover:${miniTextP} transition-colors`}>
+              <Maximize2 className="w-4 h-4" />
             </button>
           </div>
-          {/* Progress */}
-          <div className="hidden md:flex items-center gap-2 w-full">
-            <span className="text-xs text-white/50 w-9 text-right">{formatTime(progress)}</span>
-            <Slider
-              value={[progress]}
-              max={duration || 100}
-              step={1}
-              onValueChange={([val]) => seek(val)}
-              className="flex-1 h-1 cursor-pointer"
-            />
-            <span className="text-xs text-white/50 w-9">{formatTime(duration)}</span>
-          </div>
-        </div>
 
-        {/* Right controls */}
-        <div className="flex items-center justify-end gap-3 w-[30%]">
-          <button onClick={() => setShowQueue(q => !q)} className={`hidden md:block transition-colors ${showQueue ? "text-[#1DB954]" : "text-white/50 hover:text-white"}`}>
-            <ListMusic className="w-4 h-4" />
-          </button>
-          <button onClick={handleDownload} disabled={isDownloading} className="hidden md:block text-white/50 hover:text-white disabled:opacity-30 transition-colors">
-            <Download className="w-4 h-4" />
-          </button>
-          <button onClick={handleMute} className="hidden md:block text-white/50 hover:text-white transition-colors">
-            {isMuted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </button>
-          <div className="hidden md:flex items-center w-24">
-            <Slider
-              value={[isMuted ? 0 : volume * 100]}
-              max={100}
-              step={1}
-              onValueChange={([val]) => { setVolume(val / 100); if (val > 0) setIsMuted(false); }}
-              className="w-full h-1"
-            />
+          {/* Desktop extra controls */}
+          <div className="hidden md:flex items-center gap-3 flex-shrink-0">
+            <button onClick={toggleShuffle} className={`transition-colors ${shuffle ? "" : miniTextS}`} style={shuffle ? { color: accentColor } : {}}>
+              <Shuffle className="w-4 h-4" />
+            </button>
+            <button onClick={toggleRepeat} className={`transition-colors ${repeat !== "none" ? "" : miniTextS}`} style={repeat !== "none" ? { color: accentColor } : {}}>
+              <RepeatIcon className="w-4 h-4" />
+            </button>
+            <button onClick={handleDownload} disabled={isDownloading} className={`${miniTextS} hover:${miniTextP} disabled:opacity-30`}>
+              <Download className="w-4 h-4" />
+            </button>
+            <button onClick={handleMute} className={`${miniTextS} hover:${miniTextP}`}>
+              {isMuted || volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+            <div className="w-20">
+              <Slider value={[isMuted ? 0 : volume * 100]} max={100} step={1}
+                onValueChange={([v]) => { setVolume(v / 100); if (v > 0) setIsMuted(false); }}
+                className="h-1" />
+            </div>
+            <button onClick={() => setShowQueue(q => !q)} className={`transition-colors ${showQueue ? "" : miniTextS}`} style={showQueue ? { color: accentColor } : {}}>
+              <ListMusic className="w-4 h-4" />
+            </button>
           </div>
-          <button onClick={() => setIsExpanded(true)} className="text-white/50 hover:text-white transition-colors">
-            <Maximize2 className="w-4 h-4" />
-          </button>
+
+          {/* Desktop progress */}
+          <div className="hidden md:flex items-center gap-2 flex-shrink-0 w-44">
+            <span className={`text-xs w-8 text-right ${miniTextS}`}>{formatTime(progress)}</span>
+            <Slider value={[progress]} max={duration || 100} step={1} onValueChange={([v]) => seek(v)} className="flex-1 h-1 cursor-pointer" />
+            <span className={`text-xs w-8 ${miniTextS}`}>{formatTime(duration)}</span>
+          </div>
         </div>
       </div>
 
       {/* Queue panel */}
       {showQueue && (
-        <div className="fixed bottom-[90px] right-4 w-80 bg-[#282828] rounded-xl border border-white/10 shadow-2xl z-40 flex flex-col max-h-[60vh]">
-          <div className="flex items-center justify-between p-4 border-b border-white/10">
-            <h3 className="text-white font-semibold">Queue ({queue.length})</h3>
-            <button onClick={() => setShowQueue(false)} className="text-white/50 hover:text-white"><X className="w-4 h-4" /></button>
+        <div className={`fixed bottom-[80px] right-4 w-72 rounded-xl border shadow-2xl z-50 flex flex-col max-h-[60vh] ${isDark ? "bg-[#282828] border-white/10" : "bg-white border-black/10"}`}>
+          <div className={`flex items-center justify-between p-4 border-b ${isDark ? "border-white/10" : "border-black/10"}`}>
+            <h3 className={`font-semibold text-sm ${isDark ? "text-white" : "text-[#121212]"}`}>Queue ({queue.length})</h3>
+            <button onClick={() => setShowQueue(false)} className={isDark ? "text-white/50 hover:text-white" : "text-black/50 hover:text-black"}><X className="w-4 h-4" /></button>
           </div>
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
             {queue.map((song, i) => {
               const isCurr = song.videoId === currentSong.videoId;
               return (
-                <div key={`${song.videoId}-${i}`} className={`flex items-center gap-3 p-2 rounded-md ${isCurr ? "bg-white/10" : "hover:bg-white/5"}`}>
-                  <img src={song.thumbnail} className="w-10 h-10 rounded object-cover flex-shrink-0" alt={song.title} />
+                <div key={`${song.videoId}-${i}`} className={`flex items-center gap-3 p-2 rounded-lg ${isCurr ? (isDark ? "bg-white/10" : "bg-black/10") : (isDark ? "hover:bg-white/5" : "hover:bg-black/5")}`}>
+                  <img src={song.thumbnail} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" alt="" />
                   <div className="flex-1 min-w-0">
-                    <p className={`text-xs font-medium truncate ${isCurr ? "text-[#1DB954]" : "text-white"}`}>{song.title}</p>
-                    <p className="text-white/50 text-[10px] truncate">{song.artist}</p>
+                    <p className={`text-xs font-medium truncate`} style={isCurr ? { color: accentColor } : { color: isDark ? "white" : "#121212" }}>{song.title}</p>
+                    <p className={`text-[10px] truncate ${isDark ? "text-white/40" : "text-black/40"}`}>{song.artist}</p>
                   </div>
-                  {isCurr && isPlaying && <div className="w-2 h-2 bg-[#1DB954] rounded-full animate-pulse flex-shrink-0" />}
-                  {!isCurr && (
-                    <button onClick={() => removeFromQueue(song.videoId)} className="text-white/30 hover:text-white flex-shrink-0">
-                      <X className="w-3 h-3" />
-                    </button>
-                  )}
+                  {isCurr && isPlaying && <div className="w-2 h-2 rounded-full animate-pulse flex-shrink-0" style={{ background: accentColor }} />}
+                  {!isCurr && <button onClick={() => removeFromQueue(song.videoId)} className={`${isDark ? "text-white/30 hover:text-white" : "text-black/30 hover:text-black"} flex-shrink-0`}><X className="w-3 h-3" /></button>}
                 </div>
               );
             })}
@@ -208,96 +213,130 @@ export function Player() {
         </div>
       )}
 
-      {/* Expanded Player */}
+      {/* ===== EXPANDED PLAYER ===== */}
       {isExpanded && (
-        <div className="fixed inset-0 bg-[#121212] z-[100] flex flex-col md:flex-row overflow-hidden">
-          {/* Blurred bg */}
-          <div className="absolute inset-0" style={{ backgroundImage: `url(${currentSong.thumbnail})`, backgroundSize: "cover", backgroundPosition: "center", filter: "blur(60px) brightness(0.3) saturate(1.5)", transform: "scale(1.1)" }} />
-          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/50 to-black/90" />
+        <div className="fixed inset-0 z-[100] flex flex-col overflow-hidden"
+          style={{ background: isDark ? "#0d0d0d" : "#f0f0f0" }}>
+          {/* Blurred background */}
+          <div className="absolute inset-0" style={{
+            backgroundImage: `url(${currentSong.thumbnail})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            filter: "blur(60px) brightness(0.25) saturate(2)",
+            transform: "scale(1.15)"
+          }} />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/40 to-black/80" />
 
-          {/* Main player */}
-          <div className={`relative flex flex-col items-center justify-center p-8 md:p-12 flex-1 transition-all duration-500 ${showQueue ? "md:flex-none md:w-1/2" : "w-full"}`}>
-            <button onClick={() => setIsExpanded(false)} className="absolute top-6 left-6 w-10 h-10 flex items-center justify-center rounded-full bg-black/30 backdrop-blur-sm text-white/70 hover:text-white transition-colors">
-              <Minimize2 className="w-5 h-5" />
+          <div className="relative flex-1 flex flex-col items-center justify-start px-6 pt-14 pb-4 overflow-y-auto">
+            {/* Close */}
+            <button onClick={() => setIsExpanded(false)} className="absolute top-6 left-6 w-10 h-10 flex items-center justify-center rounded-full bg-black/30 backdrop-blur-sm text-white/80 hover:text-white">
+              <ChevronDown className="w-6 h-6" />
             </button>
 
+            {/* Source badge */}
+            <div className="absolute top-7 right-6">
+              <span className={`text-xs px-2.5 py-1 rounded-full ${srcInfo.bg} text-white flex items-center gap-1.5`}>
+                <SourceIconComp className="w-3 h-3" /> {srcInfo.label}
+              </span>
+            </div>
+
             {/* Artwork */}
-            <div className="w-full max-w-xs md:max-w-sm aspect-square mb-8 rounded-2xl overflow-hidden shadow-2xl">
+            <div className="w-full max-w-[280px] md:max-w-sm aspect-square rounded-2xl overflow-hidden shadow-2xl mb-8 mt-4">
               <img src={currentSong.thumbnail} alt={currentSong.title} className="w-full h-full object-cover" />
             </div>
 
-            {/* Info */}
+            {/* Info + heart */}
             <div className="w-full max-w-sm">
-              <div className="flex items-start justify-between mb-4">
+              <div className="flex items-start justify-between mb-5">
                 <div className="flex-1 min-w-0 pr-4">
                   <h2 className="text-2xl font-bold text-white truncate">{currentSong.title}</h2>
-                  <p className="text-white/60 truncate">{currentSong.artist}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${srcInfo.bg} text-white font-medium mt-1 inline-flex items-center gap-1`}>
-                    <SourceIconComp className="w-3 h-3" /> {srcInfo.label}
-                  </span>
+                  <p className="text-white/60 text-base truncate mt-0.5">{currentSong.artist}</p>
                 </div>
-                <button onClick={() => toggleFavorite(currentSong)} className={`p-2 flex-shrink-0 ${isFav ? "text-[#1DB954]" : "text-white/50 hover:text-white"}`}>
+                <button onClick={() => toggleFavorite(currentSong)} className={`p-1.5 flex-shrink-0 transition-colors ${isFav ? "text-red-400" : "text-white/50 hover:text-white"}`}>
                   <Heart className={`w-6 h-6 ${isFav ? "fill-current" : ""}`} />
                 </button>
               </div>
 
               {/* Progress */}
-              <Slider value={[progress]} max={duration || 100} step={1} onValueChange={([v]) => seek(v)} className="w-full mb-1" />
-              <div className="flex justify-between text-xs text-white/50 mb-6">
-                <span>{formatTime(progress)}</span>
-                <span>{formatTime(duration)}</span>
+              <div className="mb-5">
+                <Slider value={[progress]} max={duration || 100} step={0.5} onValueChange={([v]) => seek(v)} className="w-full mb-2" />
+                <div className="flex justify-between text-xs text-white/50">
+                  <span>{formatTime(progress)}</span>
+                  <span>{formatTime(duration)}</span>
+                </div>
               </div>
 
               {/* Controls */}
               <div className="flex items-center justify-between mb-6">
-                <button onClick={toggleShuffle} className={`${shuffle ? "text-[#1DB954]" : "text-white/50 hover:text-white"}`}><Shuffle className="w-5 h-5" /></button>
-                <button onClick={prev} className="text-white hover:text-[#1DB954] transition-colors"><SkipBack className="w-8 h-8 fill-current" /></button>
-                <button onClick={handlePlayPause} className="w-16 h-16 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 transition-transform shadow-lg">
+                <button onClick={toggleShuffle} className={`transition-colors ${shuffle ? "" : "text-white/40"}`} style={shuffle ? { color: accentColor } : {}}>
+                  <Shuffle className="w-6 h-6" />
+                </button>
+                <button onClick={prev} className="text-white hover:text-white/80 transition-colors">
+                  <SkipBack className="w-9 h-9 fill-current" />
+                </button>
+                <button
+                  onClick={handlePlayPause}
+                  className="w-16 h-16 rounded-full flex items-center justify-center shadow-2xl active:scale-95 transition-transform"
+                  style={{ background: accentColor }}
+                >
                   {isBuffering ? (
                     <div className="w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                  ) : isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-1" />}
+                  ) : isPlaying ? (
+                    <Pause className="w-7 h-7 fill-black text-black" />
+                  ) : (
+                    <Play className="w-7 h-7 fill-black text-black ml-1" />
+                  )}
                 </button>
-                <button onClick={next} className="text-white hover:text-[#1DB954] transition-colors"><SkipForward className="w-8 h-8 fill-current" /></button>
-                <button onClick={toggleRepeat} className={`${repeat !== "none" ? "text-[#1DB954]" : "text-white/50 hover:text-white"}`}><RepeatIcon className="w-5 h-5" /></button>
+                <button onClick={next} className="text-white hover:text-white/80 transition-colors">
+                  <SkipForward className="w-9 h-9 fill-current" />
+                </button>
+                <button onClick={toggleRepeat} className={`transition-colors ${repeat !== "none" ? "" : "text-white/40"}`} style={repeat !== "none" ? { color: accentColor } : {}}>
+                  <RepeatIcon className="w-6 h-6" />
+                </button>
               </div>
 
               {/* Volume */}
-              <div className="flex items-center gap-3">
-                <button onClick={handleMute} className="text-white/50 hover:text-white">
+              <div className="flex items-center gap-3 mb-5">
+                <button onClick={handleMute} className="text-white/50 hover:text-white flex-shrink-0">
                   {isMuted || volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
                 </button>
-                <Slider value={[isMuted ? 0 : volume * 100]} max={100} step={1} onValueChange={([v]) => { setVolume(v / 100); if (v > 0) setIsMuted(false); }} className="flex-1" />
+                <Slider value={[isMuted ? 0 : volume * 100]} max={100} step={1}
+                  onValueChange={([v]) => { setVolume(v / 100); if (v > 0) setIsMuted(false); }}
+                  className="flex-1" />
               </div>
 
-              {/* Bottom actions */}
-              <div className="flex items-center justify-between mt-6">
-                <button onClick={handleDownload} disabled={isDownloading} className="flex items-center gap-2 text-white/50 hover:text-white disabled:opacity-30 transition-colors text-sm">
-                  <Download className="w-4 h-4" /> {isDownloading ? "Downloading…" : "Download"}
+              {/* Actions */}
+              <div className="flex items-center justify-around pt-2 pb-safe">
+                <button onClick={handleDownload} disabled={isDownloading} className="flex flex-col items-center gap-1.5 text-white/50 hover:text-white disabled:opacity-30 transition-colors">
+                  <Download className="w-5 h-5" />
+                  <span className="text-[10px]">{isDownloading ? "Mengunduh…" : "Unduh"}</span>
                 </button>
-                <button onClick={() => setShowQueue(q => !q)} className={`flex items-center gap-2 text-sm transition-colors ${showQueue ? "text-[#1DB954]" : "text-white/50 hover:text-white"}`}>
-                  <ListMusic className="w-4 h-4" /> Queue
+                <button onClick={() => setShowQueue(q => !q)} className="flex flex-col items-center gap-1.5 transition-colors" style={showQueue ? { color: accentColor } : { color: "rgba(255,255,255,0.5)" }}>
+                  <ListMusic className="w-5 h-5" />
+                  <span className="text-[10px]">Queue</span>
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Queue in expanded */}
+          {/* Queue overlay on expanded */}
           {showQueue && (
-            <div className="relative w-full md:w-80 bg-black/60 backdrop-blur-xl border-t md:border-t-0 md:border-l border-white/10 flex flex-col max-h-60 md:max-h-full">
-              <div className="p-4 border-b border-white/10">
-                <h3 className="text-white font-semibold">Up next ({queue.length})</h3>
+            <div className="absolute inset-x-0 bottom-0 max-h-[50%] bg-black/80 backdrop-blur-xl rounded-t-3xl flex flex-col">
+              <div className="p-4 border-b border-white/10 flex items-center justify-between">
+                <h3 className="text-white font-semibold text-sm">Berikutnya ({queue.length})</h3>
+                <button onClick={() => setShowQueue(false)} className="text-white/50"><X className="w-4 h-4" /></button>
               </div>
               <div className="flex-1 overflow-y-auto p-2 space-y-1">
                 {queue.map((song, i) => {
                   const isCurr = song.videoId === currentSong.videoId;
                   return (
-                    <div key={`${song.videoId}-${i}`} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer ${isCurr ? "bg-white/10" : "hover:bg-white/5"}`}>
-                      <img src={song.thumbnail} className="w-10 h-10 rounded object-cover" alt="" />
+                    <div key={`${song.videoId}-${i}`} className={`flex items-center gap-3 p-2 rounded-xl ${isCurr ? "bg-white/15" : "hover:bg-white/5"}`}>
+                      <img src={song.thumbnail} className="w-10 h-10 rounded-lg object-cover" alt="" />
                       <div className="flex-1 min-w-0">
-                        <p className={`text-xs font-medium truncate ${isCurr ? "text-[#1DB954]" : "text-white"}`}>{song.title}</p>
-                        <p className="text-white/50 text-[10px] truncate">{song.artist}</p>
+                        <p className={`text-xs font-medium truncate`} style={{ color: isCurr ? accentColor : "white" }}>{song.title}</p>
+                        <p className="text-white/40 text-[10px] truncate">{song.artist}</p>
                       </div>
-                      {isCurr && isPlaying && <div className="w-2 h-2 bg-[#1DB954] rounded-full animate-pulse" />}
+                      {isCurr && isPlaying && <div className="w-2 h-2 rounded-full animate-pulse flex-shrink-0" style={{ background: accentColor }} />}
                     </div>
                   );
                 })}
