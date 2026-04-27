@@ -156,6 +156,19 @@ overrides:
 importers:
 
   .:
+    dependencies:
+      '@types/nodemailer':
+        specifier: ^8.0.0
+        version: 8.0.0
+      '@types/pg':
+        specifier: ^8.18.0
+        version: 8.18.0
+      nodemailer:
+        specifier: ^8.0.6
+        version: 8.0.6
+      pg:
+        specifier: ^8.20.0
+        version: 8.20.0
     devDependencies:
       prettier:
         specifier: ^3.8.1
