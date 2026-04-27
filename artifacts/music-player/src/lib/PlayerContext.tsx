@@ -182,59 +182,86 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // ─── Resolve playable URL ────────────────────────────────────────────────────
   /**
-   * Calls /api/music/prepare to get a playable URL.
-   * The endpoint:
-   *   1. Calls the source-specific download API (YouTube/Spotify/Apple/SoundCloud)
-   *   2. Returns stream_url (stream proxy — always available) 
-   *   3. Returns cdn_url (kabox CDN URL — if already uploaded from a previous play)
-   *   4. Starts CDN upload in background for next time
+   * Multi-strategy URL resolution for reliable audio playback.
    *
-   * We prefer cdn_url (direct CDN — best reliability), fallback to stream_url (proxy).
-   * Both are served over HTTPS from our same domain or CDN, so no CORS issues when
-   * the audio element does NOT have crossOrigin="anonymous".
+   * Strategy 1 (primary): /api/music/prepare  [CDN-first pipeline]
+   *   - Gets raw URL, triggers CDN upload in bg, returns stream_url immediately
+   *   - Returns cdn_url on subsequent plays (kabox CDN, best for seeking)
+   *   - Available after backend deployment
+   *
+   * Strategy 2 (fallback): /api/music/download [always available]
+   *   - Gets raw download URL from source API
+   *   - Wraps it in /api/music/stream proxy (same-origin, no CORS issue)
+   *   - Works with current production API
+   *
+   * KEY: Audio element has NO crossOrigin attribute set.
+   * Without crossOrigin="anonymous", browser does NOT enforce CORS on audio.
+   * The stream proxy (same-origin) and kabox CDN (CORS-enabled) both work fine.
    */
   async function resolvePlayUrl(song: Song): Promise<string> {
-    // 1. Check local cache (avoids re-preparing same song)
+    // 1. Check local cache (avoids re-resolving same song)
     const cacheEntry = playUrlCache.get(song.videoId);
     if (cacheEntry && Date.now() < cacheEntry.expires) {
       return cacheEntry.playUrl;
     }
 
-    // 2. Call /api/music/prepare
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    const timer = setTimeout(() => controller.abort(), 28000); // 28s overall timeout
 
-    const params = new URLSearchParams({
-      url:    song.url,
-      source: song.source,
-      videoId: song.videoId
-    });
+    try {
+      // ── Strategy 1: /api/music/prepare (CDN pipeline, new endpoint) ──────────
+      const prepareRes = await fetch(
+        `${BASE}/api/music/prepare?url=${encodeURIComponent(song.url)}&source=${song.source}&videoId=${encodeURIComponent(song.videoId)}`,
+        { signal: controller.signal }
+      );
 
-    const res = await fetch(`${BASE}/api/music/prepare?${params}`, {
-      signal: controller.signal
-    });
-    clearTimeout(timer);
-
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.error || `Prepare failed: HTTP ${res.status}`);
+      if (prepareRes.ok) {
+        const prepareData = await prepareRes.json();
+        if (prepareData.success && (prepareData.stream_url || prepareData.cdn_url)) {
+          // Prefer CDN URL (direct, best seeking); fallback to stream proxy
+          const playUrl = prepareData.cdn_url || `${BASE}${prepareData.stream_url}`;
+          cachePlayUrl(song.videoId, playUrl);
+          clearTimeout(timer);
+          return playUrl;
+        }
+      }
+      // If prepare returns 404 (endpoint not deployed yet), fall through to strategy 2
+    } catch (err: any) {
+      if (err.name === "AbortError") { clearTimeout(timer); throw err; }
+      // Network or parse error — fall through to strategy 2
+      console.warn("[Player] /prepare failed, trying /download:", err.message);
     }
 
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error || "Gagal menyiapkan lagu");
+    // ── Strategy 2: /api/music/download + stream proxy (always available) ─────
+    const downloadRes = await fetch(
+      `${BASE}/api/music/download?url=${encodeURIComponent(song.url)}&source=${song.source}`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timer);
 
-    // Prefer CDN URL (direct, no proxy, best for seeking & reliability)
-    // Fallback to stream proxy URL (always works, same-origin, no CORS issues)
-    const playUrl = data.cdn_url || `${BASE}${data.stream_url}`;
+    if (!downloadRes.ok) {
+      throw new Error(`Download gagal: HTTP ${downloadRes.status}`);
+    }
 
-    // Cache for 4 hours
+    const downloadData = await downloadRes.json();
+    if (!downloadData.success || !downloadData.download_url) {
+      throw new Error(downloadData.error || "Tidak ada URL audio yang tersedia");
+    }
+
+    // Wrap raw download URL in stream proxy
+    // Stream proxy: same-origin, adds CORS headers, handles Range requests
+    // No crossOrigin on audio element → no CORS preflight → works perfectly
+    const playUrl = `${BASE}/api/music/stream?url=${encodeURIComponent(downloadData.download_url)}`;
+    cachePlayUrl(song.videoId, playUrl);
+    return playUrl;
+  }
+
+  function cachePlayUrl(videoId: string, playUrl: string) {
     if (playUrlCache.size > 50) {
       const oldKey = playUrlCache.keys().next().value;
       if (oldKey) playUrlCache.delete(oldKey);
     }
-    playUrlCache.set(song.videoId, { playUrl, expires: Date.now() + 4 * 60 * 60 * 1000 });
-
-    return playUrl;
+    playUrlCache.set(videoId, { playUrl, expires: Date.now() + 4 * 60 * 60 * 1000 });
   }
 
   // ─── Internal play function ──────────────────────────────────────────────────
