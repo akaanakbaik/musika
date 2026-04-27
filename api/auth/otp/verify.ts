@@ -1,4 +1,6 @@
 /// <reference lib="dom" />
+import { Client } from "pg";
+
 export const config = { maxDuration: 30 };
 
 const SUPABASE_DB_URL = "postgresql://postgres.maiivetnuxnrqrnruyes:Akaanakbaik17!@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres";
@@ -12,21 +14,16 @@ export default async function handler(req: any, res: any) {
   if (req.method !== "POST") return res.status(405).json({ success: false, error: "Method not allowed" });
 
   let body = req.body;
-  if (typeof body === "string") {
-    try { body = JSON.parse(body); } catch {}
-  }
+  if (typeof body === "string") { try { body = JSON.parse(body); } catch {} }
 
   const { email, code } = body || {};
-  if (!email || !code) {
-    return res.status(400).json({ success: false, error: "Email and code required" });
-  }
+  if (!email || !code) return res.status(400).json({ success: false, error: "Email and code required" });
 
   const emailLower = email.toLowerCase().trim();
   const codeClean = String(code).trim();
 
+  const db = new Client({ connectionString: SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } });
   try {
-    const { Client } = require("pg");
-    const db = new Client({ connectionString: SUPABASE_DB_URL, ssl: { rejectUnauthorized: false } });
     await db.connect();
 
     const { rows } = await db.query(
@@ -63,6 +60,7 @@ export default async function handler(req: any, res: any) {
 
     res.json({ success: true });
   } catch (err: any) {
+    await db.end().catch(() => {});
     console.error("OTP verify error:", err.message);
     res.status(500).json({ success: false, error: "Verification failed: " + err.message });
   }
