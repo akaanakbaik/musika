@@ -15,8 +15,10 @@ interface AuthContextType {
   session: Session | null;
   profile: UserProfile | null;
   loading: boolean;
-  signUp: (email: string, password: string, username: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, username: string) => Promise<{ error: string | null; needsOtp: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  verifyOTP: (email: string, token: string) => Promise<{ error: string | null }>;
+  resendOTP: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<{ error: string | null }>;
   uploadAvatar: (file: File) => Promise<{ url: string | null; error: string | null }>;
@@ -31,14 +33,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) loadProfile(session.user.id);
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -46,18 +52,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null);
       }
+      if (event === "SIGNED_IN" && session) {
+        setLoading(false);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   async function loadProfile(userId: string) {
-    const { data } = await supabase
-      .from("user_profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-    if (data) setProfile(data);
+    try {
+      const { data } = await supabase
+        .from("user_profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+      if (data) setProfile(data);
+    } catch {}
   }
 
   async function signUp(email: string, password: string, username: string) {
@@ -66,30 +80,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password,
       options: {
         data: { username },
-        emailRedirectTo: window.location.origin
+        emailRedirectTo: `${window.location.origin}/auth`
       }
     });
-    if (error) return { error: error.message };
+    if (error) return { error: error.message, needsOtp: false };
 
     if (data.session) {
-      return { error: null };
+      return { error: null, needsOtp: false };
     }
+    return { error: null, needsOtp: true };
+  }
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    if (signInError) {
+  async function verifyOTP(email: string, token: string) {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token: token.trim(),
+      type: "email"
+    });
+    if (error) {
+      const { data: data2, error: err2 } = await supabase.auth.verifyOtp({
+        email,
+        token: token.trim(),
+        type: "signup"
+      });
+      if (err2) return { error: err2.message };
       return { error: null };
     }
     return { error: null };
   }
 
-  async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+  async function resendOTP(email: string) {
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email
+    });
     return { error: error?.message ?? null };
+  }
+
+  async function signIn(email: string, password: string) {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) return { error: error.message };
+    if (data.session) {
+      setSession(data.session);
+      setUser(data.user);
+      if (data.user) loadProfile(data.user.id);
+    }
+    return { error: null };
   }
 
   async function signOut() {
     await supabase.auth.signOut();
     setProfile(null);
+    setUser(null);
+    setSession(null);
   }
 
   async function updateProfile(data: Partial<UserProfile>) {
@@ -123,7 +166,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, signOut, updateProfile, uploadAvatar }}>
+    <AuthContext.Provider value={{
+      user, session, profile, loading,
+      signUp, signIn, verifyOTP, resendOTP,
+      signOut, updateProfile, uploadAvatar
+    }}>
       {children}
     </AuthContext.Provider>
   );
