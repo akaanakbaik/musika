@@ -33,6 +33,7 @@ function AppRoutes() {
       <Route path="/ai" component={AIChat} />
       <Route path="/profile" component={Profile} />
       <Route path="/download-app" component={DownloadApp} />
+      <Route path="/download" component={DownloadApp} />
       <Route path="/auth" component={AuthPage} />
       <Route component={NotFound} />
     </Switch>
