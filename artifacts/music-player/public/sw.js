@@ -1,10 +1,11 @@
-const CACHE_VERSION = "musika-v3";
+const CACHE_VERSION = "musika-v4";
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
 
 const STATIC_ASSETS = [
   "/",
   "/index.html",
+  "/manifest.webmanifest",
   "/manifest.json"
 ];
 
@@ -58,8 +59,22 @@ self.addEventListener("fetch", (event) => {
         return res;
       }).catch(async () => {
         const cached = await caches.match("/") || await caches.match("/index.html");
-        return cached || new Response("<html><body><h1>Offline</h1><p>Please check your connection.</p></body></html>", {
-          headers: { "Content-Type": "text/html" }
+        return cached || new Response(
+          "<!DOCTYPE html><html><head><title>Musika - Offline</title></head><body style='background:#121212;color:white;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;text-align:center;'><div><h1>Musika</h1><p>You are offline. Please check your connection.</p></div></body></html>",
+          { headers: { "Content-Type": "text/html" } }
+        );
+      })
+    );
+    return;
+  }
+
+  if (url.includes("/manifest.webmanifest") || url.includes("/manifest.json")) {
+    event.respondWith(
+      caches.match(request).then(cached => {
+        if (cached) return cached;
+        return fetch(request).then(res => {
+          if (res.ok) caches.open(STATIC_CACHE).then(c => c.put(request, res.clone()));
+          return res;
         });
       })
     );
