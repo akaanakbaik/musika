@@ -1,0 +1,32 @@
+name: Supabase Keep-Alive
+
+on:
+  schedule:
+    - cron: '0 6 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    name: Ping Supabase
+
+    steps:
+      - name: Ping Supabase REST API
+        run: |
+          echo "Pinging Supabase to prevent project pause..."
+          STATUS=$(curl -o /dev/null -s -w "%{http_code}" \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            --max-time 30)
+          echo "Supabase status: $STATUS"
+
+      - name: Query DB to keep active
+        run: |
+          RESULT=$(curl -s \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/user_profiles?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            --max-time 30)
+          echo "DB response: $RESULT"
+          echo "✓ Supabase keep-alive done"

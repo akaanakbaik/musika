@@ -17,7 +17,6 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, username: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  verifyOTP: (email: string, token: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<{ error: string | null }>;
   uploadAvatar: (file: File) => Promise<{ url: string | null; error: string | null }>;
@@ -62,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signUp(email: string, password: string, username: string) {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -70,20 +69,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         emailRedirectTo: window.location.origin
       }
     });
-    return { error: error?.message ?? null };
+    if (error) return { error: error.message };
+
+    if (data.session) {
+      return { error: null };
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    if (signInError) {
+      return { error: null };
+    }
+    return { error: null };
   }
 
   async function signIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message ?? null };
-  }
-
-  async function verifyOTP(email: string, token: string) {
-    const { error } = await supabase.auth.verifyOtp({
-      email,
-      token,
-      type: "signup"
-    });
     return { error: error?.message ?? null };
   }
 
@@ -123,7 +123,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, verifyOTP, signOut, updateProfile, uploadAvatar }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signUp, signIn, signOut, updateProfile, uploadAvatar }}>
       {children}
     </AuthContext.Provider>
   );
