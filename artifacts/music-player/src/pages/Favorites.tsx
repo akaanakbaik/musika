@@ -27,7 +27,7 @@ export default function Favorites() {
     setSongs((data || []).map((f: any) => ({
       videoId: f.video_id,
       title: f.title,
-      author: { name: f.artist },
+      artist: f.artist || "",
       thumbnail: f.thumbnail,
       duration: f.duration,
       source: f.source,

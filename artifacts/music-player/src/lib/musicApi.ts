@@ -7,7 +7,9 @@ export interface Song {
   duration: string;
   url: string;
   source: "youtube" | "spotify" | "apple" | "soundcloud";
-  author: { name: string };
+  artist: string;
+  album?: string;
+  releaseDate?: string;
 }
 
 export type Source = "all" | "youtube" | "spotify" | "apple" | "soundcloud";
@@ -17,6 +19,15 @@ export interface SearchResults {
   spotify?: Song[];
   apple?: Song[];
   soundcloud?: Song[];
+}
+
+export interface DownloadResult {
+  download_url: string;
+  title: string;
+  thumbnail: string;
+  artist: string;
+  album?: string;
+  source: string;
 }
 
 export async function searchMusic(q: string, source: Source = "all"): Promise<SearchResults> {
@@ -33,11 +44,22 @@ export async function getRecommendations(): Promise<Song[]> {
   return data.results as Song[];
 }
 
-export async function downloadSong(url: string, source: string): Promise<{ download_url: string; title: string; thumbnail: string }> {
-  const res = await fetch(`${BASE}/api/music/download?url=${encodeURIComponent(url)}&source=${source}`);
+export async function downloadSong(url: string, source: string): Promise<DownloadResult> {
+  const res = await fetch(
+    `${BASE}/api/music/download?url=${encodeURIComponent(url)}&source=${encodeURIComponent(source)}`
+  );
   const data = await res.json();
   if (!data.success) throw new Error(data.error || "Download failed");
-  return data;
+  return data as DownloadResult;
+}
+
+export async function downloadSongByQuery(q: string, source: string = "spotify"): Promise<DownloadResult> {
+  const res = await fetch(
+    `${BASE}/api/music/download?q=${encodeURIComponent(q)}&source=${encodeURIComponent(source)}`
+  );
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || "Download failed");
+  return data as DownloadResult;
 }
 
 export async function aiChat(message: string): Promise<string> {

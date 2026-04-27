@@ -88,7 +88,7 @@ export function Player() {
               className="text-white text-sm font-medium truncate cursor-pointer hover:underline"
               onClick={() => setIsExpanded(true)}
             >{currentSong.title}</p>
-            <p className="text-white/60 text-xs truncate">{currentSong.author.name}</p>
+            <p className="text-white/60 text-xs truncate">{currentSong.artist}</p>
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${srcInfo.bg} text-white font-medium`}>
               {sourceIcons[currentSong.source]} {srcInfo.label}
             </span>
@@ -184,7 +184,7 @@ export function Player() {
                   <img src={song.thumbnail} className="w-10 h-10 rounded object-cover flex-shrink-0" alt={song.title} />
                   <div className="flex-1 min-w-0">
                     <p className={`text-xs font-medium truncate ${isCurr ? "text-[#1DB954]" : "text-white"}`}>{song.title}</p>
-                    <p className="text-white/50 text-[10px] truncate">{song.author.name}</p>
+                    <p className="text-white/50 text-[10px] truncate">{song.artist}</p>
                   </div>
                   {isCurr && isPlaying && <div className="w-2 h-2 bg-[#1DB954] rounded-full animate-pulse flex-shrink-0" />}
                   {!isCurr && (
@@ -222,7 +222,7 @@ export function Player() {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex-1 min-w-0 pr-4">
                   <h2 className="text-2xl font-bold text-white truncate">{currentSong.title}</h2>
-                  <p className="text-white/60 truncate">{currentSong.author.name}</p>
+                  <p className="text-white/60 truncate">{currentSong.artist}</p>
                   <span className={`text-xs px-2 py-0.5 rounded-full ${srcInfo.bg} text-white font-medium mt-1 inline-block`}>
                     {sourceIcons[currentSong.source]} {srcInfo.label}
                   </span>
@@ -286,7 +286,7 @@ export function Player() {
                       <img src={song.thumbnail} className="w-10 h-10 rounded object-cover" alt="" />
                       <div className="flex-1 min-w-0">
                         <p className={`text-xs font-medium truncate ${isCurr ? "text-[#1DB954]" : "text-white"}`}>{song.title}</p>
-                        <p className="text-white/50 text-[10px] truncate">{song.author.name}</p>
+                        <p className="text-white/50 text-[10px] truncate">{song.artist}</p>
                       </div>
                       {isCurr && isPlaying && <div className="w-2 h-2 bg-[#1DB954] rounded-full animate-pulse" />}
                     </div>

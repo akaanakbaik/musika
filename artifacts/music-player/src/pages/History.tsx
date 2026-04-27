@@ -29,7 +29,7 @@ export default function History() {
     setSongs((data || []).map((h: any) => ({
       videoId: h.video_id,
       title: h.title,
-      author: { name: h.artist },
+      artist: h.artist || "",
       thumbnail: h.thumbnail,
       duration: h.duration,
       source: h.source,

@@ -73,7 +73,7 @@ export function SongCard({ song, queue, variant = "default", index }: SongCardPr
         <img src={song.thumbnail} alt={song.title} className="w-10 h-10 rounded object-cover flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/40x40/333/999?text=♪"; }} />
         <div className="flex-1 min-w-0">
           <p className={`text-sm font-medium truncate ${isActive ? "text-[#1DB954]" : "text-white"}`}>{song.title}</p>
-          <p className="text-xs text-white/50 truncate">{song.author.name}</p>
+          <p className="text-xs text-white/50 truncate">{song.artist}</p>
         </div>
         <span className={`text-xs px-2 py-0.5 rounded-full ${srcInfo.bg} text-white font-medium flex-shrink-0`}>
           {sourceIcons[song.source]} {srcInfo.label}
@@ -127,7 +127,7 @@ export function SongCard({ song, queue, variant = "default", index }: SongCardPr
       </div>
       <div className="flex-1 min-w-0" onClick={handlePlay}>
         <h3 className={`font-semibold text-sm truncate ${isActive ? "text-[#1DB954]" : "text-white"}`}>{song.title}</h3>
-        <p className="text-white/60 text-xs mt-1 truncate">{song.author.name}</p>
+        <p className="text-white/60 text-xs mt-1 truncate">{song.artist}</p>
         <p className="text-white/40 text-xs mt-0.5">{song.duration}</p>
       </div>
       <div className="flex items-center justify-between mt-2">

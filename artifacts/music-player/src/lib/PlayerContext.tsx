@@ -90,7 +90,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (!("mediaSession" in navigator) || !currentSong) return;
     navigator.mediaSession.metadata = new MediaMetadata({
       title: currentSong.title,
-      artist: currentSong.author.name,
+      artist: currentSong.artist,
       artwork: [{ src: currentSong.thumbnail, sizes: "512x512", type: "image/jpeg" }]
     });
     navigator.mediaSession.setActionHandler("play", () => resume());
@@ -190,7 +190,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if ("mediaSession" in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
         title: song.title,
-        artist: song.author.name,
+        artist: song.artist,
         artwork: [{ src: song.thumbnail, sizes: "512x512", type: "image/jpeg" }]
       });
     }
@@ -204,7 +204,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         user_id: session.user.id,
         video_id: song.videoId,
         title: song.title,
-        artist: song.author.name,
+        artist: song.artist,
         thumbnail: song.thumbnail,
         duration: song.duration,
         source: song.source,
@@ -303,7 +303,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           user_id: session.user.id,
           video_id: song.videoId,
           title: song.title,
-          artist: song.author.name,
+          artist: song.artist,
           thumbnail: song.thumbnail,
           duration: song.duration,
           source: song.source,
