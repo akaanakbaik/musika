@@ -1,0 +1,45 @@
+{
+  "name": "Musika — Music Player",
+  "short_name": "Musika",
+  "description": "Stream music from YouTube, Spotify, Apple Music & SoundCloud. AI-powered recommendations. Free forever.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#121212",
+  "theme_color": "#1DB954",
+  "lang": "en",
+  "categories": ["music", "entertainment"],
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/akaanakbaik/my-cdn/main/musika/logonobglatar121212.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/akaanakbaik/my-cdn/main/musika/logonobglatar121212.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Search Music",
+      "short_name": "Search",
+      "description": "Search for music",
+      "url": "/search",
+      "icons": [{ "src": "https://raw.githubusercontent.com/akaanakbaik/my-cdn/main/musika/logonobglatar121212.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Liked Songs",
+      "short_name": "Favorites",
+      "description": "View liked songs",
+      "url": "/favorites",
+      "icons": [{ "src": "https://raw.githubusercontent.com/akaanakbaik/my-cdn/main/musika/logonobglatar121212.png", "sizes": "96x96" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}
