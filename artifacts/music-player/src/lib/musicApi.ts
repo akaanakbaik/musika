@@ -37,12 +37,12 @@ export async function searchMusic(q: string, source: Source = "all"): Promise<Se
   return data.results as SearchResults;
 }
 
-// Search a single source — for real-time progress
+// Search a single source — uses existing /search endpoint with source param (for real-time progress)
 export async function searchSource(q: string, source: "youtube" | "spotify" | "apple" | "soundcloud"): Promise<Song[]> {
-  const res = await fetch(`${BASE}/api/music/search/${source}?q=${encodeURIComponent(q)}`);
+  const res = await fetch(`${BASE}/api/music/search?q=${encodeURIComponent(q)}&source=${source}`);
   const data = await res.json();
   if (!data.success) return [];
-  return (data.results as Song[]) || [];
+  return (data.results?.[source] as Song[]) || [];
 }
 
 export async function getRecommendations(): Promise<Song[]> {
