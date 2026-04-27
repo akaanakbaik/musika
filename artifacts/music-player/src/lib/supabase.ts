@@ -8,8 +8,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    storageKey: "musika-auth",
-    flowType: "pkce"
+    storageKey: "musika-session-v2",
   }
 });
 
