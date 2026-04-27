@@ -9,6 +9,8 @@ interface PlayerContextType {
   currentSong: Song | null;
   queue: Song[];
   isPlaying: boolean;
+  isResolving: boolean;
+  resolvingStep: string;
   volume: number;
   progress: number;
   duration: number;
@@ -32,17 +34,34 @@ interface PlayerContextType {
 }
 
 const PlayerContext = createContext<PlayerContextType | null>(null);
+
+// BASE is the Vite base path (e.g. "" in production or "/prefix" in sub-path)
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
-// Cache resolved stream URLs so we don't re-fetch for same song
-const streamUrlCache = new Map<string, string>();
+// Cache resolved play URLs so re-plays are instant
+interface PlayUrlEntry { playUrl: string; expires: number; }
+const playUrlCache = new Map<string, PlayUrlEntry>();
+
+// Source-specific loading messages shown to user
+const RESOLVING_MESSAGES: Record<string, string> = {
+  youtube:    "Memuat dari YouTube…",
+  spotify:    "Memuat dari Spotify…",
+  apple:      "Memuat dari Apple Music…",
+  soundcloud: "Memuat dari SoundCloud…",
+  default:    "Memuat lagu…"
+};
 
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
+  // ─── Audio element ───────────────────────────────────────────────────────────
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // ─── State ───────────────────────────────────────────────────────────────────
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [queue, setQueue] = useState<Song[]>([]);
   const [queueIndex, setQueueIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isResolving, setIsResolving] = useState(false);
+  const [resolvingStep, setResolvingStep] = useState("");
   const [volume, setVolumeState] = useState(0.8);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -50,7 +69,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<"none" | "one" | "all">("none");
-  const resolveRef = useRef<string | null>(null);
+
+  // ─── Refs for closures ───────────────────────────────────────────────────────
+  const resolveRef = useRef<string | null>(null); // tracks which song is being resolved
   const queueRef = useRef(queue);
   const queueIndexRef = useRef(queueIndex);
   const repeatRef = useRef(repeat);
@@ -59,24 +80,26 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { queueIndexRef.current = queueIndex; }, [queueIndex]);
   useEffect(() => { repeatRef.current = repeat; }, [repeat]);
 
-  // Initialize audio element
+  // ─── Audio element setup ─────────────────────────────────────────────────────
   useEffect(() => {
     const audio = new Audio();
     audio.volume = volume;
     audio.preload = "auto";
-    audio.crossOrigin = "anonymous";
+    // ✅ DO NOT set crossOrigin="anonymous" — this causes CORS blocks with external CDNs
+    // (kelvdra returns Access-Control-Allow-Origin: null which browser rejects in CORS mode)
     audioRef.current = audio;
 
     const onTimeUpdate = () => setProgress(audio.currentTime);
-    const onDuration = () => { if (!isNaN(audio.duration)) setDuration(audio.duration); };
-    const onWaiting = () => setIsBuffering(true);
-    const onCanPlay = () => setIsBuffering(false);
-    const onPlay = () => { setIsPlaying(true); setIsBuffering(false); };
-    const onPause = () => setIsPlaying(false);
-    const onError = (e: Event) => {
+    const onDuration   = () => { if (!isNaN(audio.duration) && isFinite(audio.duration)) setDuration(audio.duration); };
+    const onWaiting    = () => setIsBuffering(true);
+    const onCanPlay    = () => { setIsBuffering(false); };
+    const onPlay       = () => { setIsPlaying(true); setIsBuffering(false); };
+    const onPause      = () => setIsPlaying(false);
+    const onError      = (e: Event) => {
       const err = (e.target as HTMLAudioElement).error;
-      console.warn("Audio error:", err?.message);
+      console.warn("[Audio] Playback error:", err?.code, err?.message);
       setIsBuffering(false);
+      setIsResolving(false);
     };
     const onEnded = () => {
       const r = repeatRef.current;
@@ -86,61 +109,60 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         audio.currentTime = 0;
         audio.play().catch(() => {});
       } else if (q.length > 1) {
-        const nextIdx = (qi + 1) % q.length;
-        queueIndexRef.current = nextIdx;
-        setQueueIndex(nextIdx);
-        internalPlay(q[nextIdx]);
+        const next = (qi + 1) % q.length;
+        queueIndexRef.current = next;
+        setQueueIndex(next);
+        internalPlay(q[next]);
       } else if (r === "all" && q.length > 0) {
         internalPlay(q[0]);
       }
     };
 
-    audio.addEventListener("timeupdate", onTimeUpdate);
+    audio.addEventListener("timeupdate",     onTimeUpdate);
     audio.addEventListener("durationchange", onDuration);
-    audio.addEventListener("waiting", onWaiting);
-    audio.addEventListener("canplay", onCanPlay);
-    audio.addEventListener("play", onPlay);
-    audio.addEventListener("pause", onPause);
-    audio.addEventListener("error", onError);
-    audio.addEventListener("ended", onEnded);
+    audio.addEventListener("waiting",        onWaiting);
+    audio.addEventListener("canplay",        onCanPlay);
+    audio.addEventListener("play",           onPlay);
+    audio.addEventListener("pause",          onPause);
+    audio.addEventListener("error",          onError);
+    audio.addEventListener("ended",          onEnded);
 
     return () => {
-      audio.removeEventListener("timeupdate", onTimeUpdate);
+      audio.removeEventListener("timeupdate",     onTimeUpdate);
       audio.removeEventListener("durationchange", onDuration);
-      audio.removeEventListener("waiting", onWaiting);
-      audio.removeEventListener("canplay", onCanPlay);
-      audio.removeEventListener("play", onPlay);
-      audio.removeEventListener("pause", onPause);
-      audio.removeEventListener("error", onError);
-      audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("waiting",        onWaiting);
+      audio.removeEventListener("canplay",        onCanPlay);
+      audio.removeEventListener("play",           onPlay);
+      audio.removeEventListener("pause",          onPause);
+      audio.removeEventListener("error",          onError);
+      audio.removeEventListener("ended",          onEnded);
       audio.pause();
       audio.src = "";
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Media Session API
+  // ─── Media Session API ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!("mediaSession" in navigator) || !currentSong) return;
     try {
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: currentSong.title,
-        artist: currentSong.artist,
+        title:   currentSong.title,
+        artist:  currentSong.artist,
         artwork: [
           { src: currentSong.thumbnail, sizes: "512x512", type: "image/jpeg" },
           { src: currentSong.thumbnail, sizes: "256x256", type: "image/jpeg" },
         ]
       });
-      navigator.mediaSession.setActionHandler("play", () => resume());
-      navigator.mediaSession.setActionHandler("pause", () => pause());
-      navigator.mediaSession.setActionHandler("nexttrack", () => next());
-      navigator.mediaSession.setActionHandler("previoustrack", () => prev());
-      navigator.mediaSession.setActionHandler("seekto", (d) => {
-        if (d.seekTime !== undefined) seek(d.seekTime);
-      });
+      navigator.mediaSession.setActionHandler("play",           () => resume());
+      navigator.mediaSession.setActionHandler("pause",          () => pause());
+      navigator.mediaSession.setActionHandler("nexttrack",      () => next());
+      navigator.mediaSession.setActionHandler("previoustrack",  () => prev());
+      navigator.mediaSession.setActionHandler("seekto",         (d) => { if (d.seekTime !== undefined) seek(d.seekTime); });
     } catch {}
   }, [currentSong]);
 
-  // Load favorites
+  // ─── Load favorites ──────────────────────────────────────────────────────────
   useEffect(() => {
     try {
       const stored = localStorage.getItem("musika-favorites");
@@ -158,59 +180,78 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }
 
-  async function resolveStreamUrl(song: Song): Promise<string> {
-    // Return cached URL if available
-    if (streamUrlCache.has(song.videoId)) {
-      return streamUrlCache.get(song.videoId)!;
+  // ─── Resolve playable URL ────────────────────────────────────────────────────
+  /**
+   * Calls /api/music/prepare to get a playable URL.
+   * The endpoint:
+   *   1. Calls the source-specific download API (YouTube/Spotify/Apple/SoundCloud)
+   *   2. Returns stream_url (stream proxy — always available) 
+   *   3. Returns cdn_url (kabox CDN URL — if already uploaded from a previous play)
+   *   4. Starts CDN upload in background for next time
+   *
+   * We prefer cdn_url (direct CDN — best reliability), fallback to stream_url (proxy).
+   * Both are served over HTTPS from our same domain or CDN, so no CORS issues when
+   * the audio element does NOT have crossOrigin="anonymous".
+   */
+  async function resolvePlayUrl(song: Song): Promise<string> {
+    // 1. Check local cache (avoids re-preparing same song)
+    const cacheEntry = playUrlCache.get(song.videoId);
+    if (cacheEntry && Date.now() < cacheEntry.expires) {
+      return cacheEntry.playUrl;
     }
 
-    let streamUrl: string | null = null;
+    // 2. Call /api/music/prepare
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-    // Try download API for all sources
-    if (song.url) {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 20000);
-        const res = await fetch(
-          `${BASE}/api/music/download?url=${encodeURIComponent(song.url)}&source=${song.source}`,
-          { signal: controller.signal }
-        );
-        clearTimeout(timer);
-        const data = await res.json();
-        if (data.success && data.download_url) {
-          // Stream through our proxy to avoid CORS issues
-          streamUrl = `${BASE}/api/music/stream?url=${encodeURIComponent(data.download_url)}`;
-        }
-      } catch (err) {
-        console.warn("Download API failed:", err);
-      }
+    const params = new URLSearchParams({
+      url:    song.url,
+      source: song.source,
+      videoId: song.videoId
+    });
+
+    const res = await fetch(`${BASE}/api/music/prepare?${params}`, {
+      signal: controller.signal
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `Prepare failed: HTTP ${res.status}`);
     }
 
-    // Fallback: stream directly from song URL
-    if (!streamUrl && song.url) {
-      streamUrl = `${BASE}/api/music/stream?url=${encodeURIComponent(song.url)}`;
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Gagal menyiapkan lagu");
+
+    // Prefer CDN URL (direct, no proxy, best for seeking & reliability)
+    // Fallback to stream proxy URL (always works, same-origin, no CORS issues)
+    const playUrl = data.cdn_url || `${BASE}${data.stream_url}`;
+
+    // Cache for 4 hours
+    if (playUrlCache.size > 50) {
+      const oldKey = playUrlCache.keys().next().value;
+      if (oldKey) playUrlCache.delete(oldKey);
     }
+    playUrlCache.set(song.videoId, { playUrl, expires: Date.now() + 4 * 60 * 60 * 1000 });
 
-    if (!streamUrl) throw new Error("Tidak dapat memuat lagu ini.");
-
-    // Cache for future use (cache up to 20 entries)
-    if (streamUrlCache.size > 20) {
-      const firstKey = streamUrlCache.keys().next().value;
-      if (firstKey) streamUrlCache.delete(firstKey);
-    }
-    streamUrlCache.set(song.videoId, streamUrl);
-
-    return streamUrl;
+    return playUrl;
   }
 
+  // ─── Internal play function ──────────────────────────────────────────────────
   async function internalPlay(song: Song) {
     const audio = audioRef.current;
     if (!audio) return;
 
+    // Update UI immediately — show song info + loading state
     setCurrentSong(song);
+    setIsResolving(true);
+    setResolvingStep(RESOLVING_MESSAGES[song.source] || RESOLVING_MESSAGES.default);
     setIsBuffering(true);
     setProgress(0);
     setDuration(0);
+    setIsPlaying(false);
+
+    // Stop current playback
     audio.pause();
     audio.src = "";
 
@@ -220,34 +261,61 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     resolveRef.current = songKey;
 
     try {
-      const streamUrl = await resolveStreamUrl(song);
-      if (resolveRef.current !== songKey) return; // Song changed mid-resolve
+      // Step A: Get playable URL (2–8 seconds typically)
+      setResolvingStep(RESOLVING_MESSAGES[song.source] || RESOLVING_MESSAGES.default);
+      const playUrl = await resolvePlayUrl(song);
 
-      audio.src = streamUrl;
+      // If song changed while resolving, abort
+      if (resolveRef.current !== songKey) return;
+
+      setResolvingStep("Mempersiapkan audio…");
+
+      // Step B: Set audio source — no crossOrigin attribute, so browser won't
+      // enforce CORS preflight. Works with both same-origin proxy URLs and CDN URLs.
+      audio.src = playUrl;
       audio.load();
+
+      // Step C: Play — triggered right after user interaction, so browser allows it
       await audio.play();
+
       setIsPlaying(true);
+      setIsResolving(false);
+      setResolvingStep("");
 
       if ("mediaSession" in navigator) {
         navigator.mediaSession.playbackState = "playing";
       }
+
     } catch (err: any) {
-      if (resolveRef.current !== songKey) return;
-      console.error("Playback failed:", err);
-      // Remove from cache so next attempt re-fetches
-      streamUrlCache.delete(song.videoId);
-      toast({
-        title: "Gagal memutar",
-        description: "Lagu tidak dapat diputar. Coba lagi.",
-        variant: "destructive"
-      });
+      if (resolveRef.current !== songKey) return; // Song changed, ignore error
+
+      console.error("[Player] Playback failed:", err.name, err.message);
+
+      // Clear cache so next attempt re-fetches
+      playUrlCache.delete(song.videoId);
+      setIsResolving(false);
+      setResolvingStep("");
       setIsBuffering(false);
       setIsPlaying(false);
+
+      // User-facing error
+      const isAbort   = err.name === "AbortError";
+      const isNotAllow = err.name === "NotAllowedError";
+      toast({
+        title: isAbort     ? "Waktu habis — coba lagi"
+             : isNotAllow  ? "Putar gagal — klik Play"
+             : "Gagal memutar lagu",
+        description: isAbort    ? `Koneksi lambat saat memuat ${song.title}`
+                   : isNotAllow ? "Browser memblokir autoplay. Tekan tombol Play."
+                   : err.message || "Terjadi kesalahan. Coba lagi.",
+        variant: "destructive"
+      });
     }
   }
 
+  // ─── Public play ─────────────────────────────────────────────────────────────
   const playSong = useCallback(async (song: Song, newQueue?: Song[]) => {
-    if (newQueue) {
+    if (newQueue && newQueue.length > 0) {
       setQueue(newQueue);
       queueRef.current = newQueue;
       const idx = newQueue.findIndex(s => s.videoId === song.videoId);
@@ -258,23 +326,25 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     await internalPlay(song);
   }, []);
 
+  // ─── History ─────────────────────────────────────────────────────────────────
   async function recordHistory(song: Song) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
       await supabase.from("play_history").insert({
-        user_id: session.user.id,
-        video_id: song.videoId,
-        title: song.title,
-        artist: song.artist,
+        user_id:   session.user.id,
+        video_id:  song.videoId,
+        title:     song.title,
+        artist:    song.artist,
         thumbnail: song.thumbnail,
-        duration: song.duration,
-        source: song.source,
-        url: song.url
+        duration:  song.duration,
+        source:    song.source,
+        url:       song.url
       });
     } catch {}
   }
 
+  // ─── Controls ────────────────────────────────────────────────────────────────
   function pause() {
     audioRef.current?.pause();
     setIsPlaying(false);
@@ -299,12 +369,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }
 
   function prev() {
-    const q = queueRef.current;
     const audio = audioRef.current;
-    if (audio && audio.currentTime > 3) {
-      audio.currentTime = 0;
-      return;
-    }
+    if (audio && audio.currentTime > 3) { audio.currentTime = 0; return; }
+    const q = queueRef.current;
     if (q.length === 0) return;
     const prevIdx = (queueIndexRef.current - 1 + q.length) % q.length;
     setQueueIndex(prevIdx);
@@ -319,7 +386,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }
 
   function seek(t: number) {
-    if (audioRef.current && !isNaN(t)) {
+    if (audioRef.current && !isNaN(t) && isFinite(t)) {
       audioRef.current.currentTime = t;
       setProgress(t);
     }
@@ -351,17 +418,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
-  function clearQueue() {
-    setQueue([]);
-    queueRef.current = [];
-  }
+  function clearQueue() { setQueue([]); queueRef.current = []; }
 
   function isFavorite(videoId: string) { return favorites.has(videoId); }
 
   async function toggleFavorite(song: Song) {
-    const isFav = favorites.has(song.videoId);
+    const wasFav = favorites.has(song.videoId);
     const newFavs = new Set(favorites);
-    if (isFav) {
+    if (wasFav) {
       newFavs.delete(song.videoId);
       toast({ title: "Dihapus dari favorit" });
     } else {
@@ -374,20 +438,19 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      if (isFav) {
-        await supabase.from("favorites").delete()
-          .eq("user_id", session.user.id).eq("video_id", song.videoId);
+      if (wasFav) {
+        await supabase.from("favorites").delete().eq("user_id", session.user.id).eq("video_id", song.videoId);
       } else {
         await supabase.from("favorites").upsert({
-          user_id: session.user.id,
-          video_id: song.videoId,
-          title: song.title,
-          artist: song.artist,
+          user_id:   session.user.id,
+          video_id:  song.videoId,
+          title:     song.title,
+          artist:    song.artist,
           thumbnail: song.thumbnail,
-          duration: song.duration,
-          source: song.source,
-          url: song.url,
-          liked_at: new Date().toISOString()
+          duration:  song.duration,
+          source:    song.source,
+          url:       song.url,
+          liked_at:  new Date().toISOString()
         });
       }
     } catch {}
@@ -395,10 +458,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <PlayerContext.Provider value={{
-      currentSong, queue, isPlaying, volume, progress, duration, isBuffering,
+      currentSong, queue, isPlaying, isResolving, resolvingStep,
+      volume, progress, duration, isBuffering,
       shuffle, repeat,
-      playSong, pause, resume, next, prev, setVolume, seek,
-      toggleShuffle, toggleRepeat,
+      playSong, pause, resume, next, prev,
+      setVolume, seek, toggleShuffle, toggleRepeat,
       addToQueue, removeFromQueue, clearQueue,
       isFavorite, toggleFavorite
     }}>

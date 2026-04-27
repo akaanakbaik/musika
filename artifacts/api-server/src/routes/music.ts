@@ -684,49 +684,148 @@ router.get("/music/download", async (req: Request, res: Response) => {
   }
 });
 
-// ===== STREAM PROXY (with proper Range support) =====
+// ===== PREPARE ENDPOINT (CDN-first playback pipeline) =====
+// Per-song TTL cache for prepared play URLs
+interface PrepareEntry { streamUrl: string; cdnUrl: string | null; expires: number; }
+const prepareCache = new Map<string, PrepareEntry>();
+
+router.get("/music/prepare", async (req: Request, res: Response) => {
+  const { url, source = "youtube", videoId } = req.query as { url?: string; source?: string; videoId?: string };
+  if (!url) return res.status(400).json({ success: false, error: "url is required" });
+
+  const cacheKey = `${source}:${videoId || url}`;
+
+  // Return cached entry if still valid
+  const cached = prepareCache.get(cacheKey);
+  if (cached && Date.now() < cached.expires) {
+    return res.json({ success: true, stream_url: cached.streamUrl, cdn_url: cached.cdnUrl, cached: true });
+  }
+
+  try {
+    // Step 1: Get raw audio URL based on source
+    let rawUrl = "";
+    let title = "";
+    let thumbnail = "";
+    let artist = "";
+    let album = "";
+
+    if (source === "youtube") {
+      const r = await downloadYouTube(url);
+      rawUrl = r.downloadUrl; title = r.title; thumbnail = r.thumbnail; artist = r.artist;
+    } else if (source === "spotify") {
+      const r = await downloadSpotify(url);
+      rawUrl = r.downloadUrl; title = r.title; thumbnail = r.thumbnail; artist = r.artist; album = r.album;
+    } else if (source === "apple") {
+      const r = await downloadAppleMusic(url);
+      rawUrl = r.downloadUrl; title = r.title; thumbnail = r.thumbnail; artist = r.artist; album = r.album;
+    } else if (source === "soundcloud") {
+      const r = await downloadSoundCloud(url);
+      rawUrl = r.downloadUrl; title = r.title; thumbnail = r.thumbnail; artist = r.artist;
+    } else {
+      return res.status(400).json({ success: false, error: `Unknown source: ${source}` });
+    }
+
+    if (!rawUrl) throw new Error("Could not get audio URL from source");
+
+    // Step 2: Build stream proxy URL (always available, no CORS issues)
+    // NOTE: rawUrl is already decoded by Express query parsing — do NOT double-decode
+    const streamUrl = `/api/music/stream?url=${encodeURIComponent(rawUrl)}`;
+
+    // Step 3: Check if CDN URL already cached from a previous background upload
+    const existingCdn = cdnCache.get(rawUrl);
+
+    // Step 4: Trigger CDN upload in background (non-blocking)
+    // This warms the cache so the NEXT play of this song uses CDN directly
+    if (!existingCdn) {
+      const slug = (videoId || `${source}-${Date.now()}`).replace(/[^a-z0-9]/gi, "-").slice(0, 40);
+      uploadToCDN(rawUrl, slug).catch(() => {});
+    }
+
+    // Step 5: Cache the prepare result
+    const entry: PrepareEntry = {
+      streamUrl,
+      cdnUrl: existingCdn || null,
+      expires: Date.now() + 5 * 60 * 60 * 1000 // 5h
+    };
+    if (prepareCache.size > 100) {
+      const oldKey = prepareCache.keys().next().value;
+      if (oldKey) prepareCache.delete(oldKey);
+    }
+    prepareCache.set(cacheKey, entry);
+
+    return res.json({
+      success: true,
+      stream_url: streamUrl,
+      cdn_url: existingCdn || null,
+      title, artist, thumbnail, album, source,
+      via_cdn: !!existingCdn
+    });
+
+  } catch (err: any) {
+    console.error(`[Prepare] ${source} error:`, err.message);
+    res.status(500).json({ success: false, error: err.message || "Gagal menyiapkan lagu" });
+  }
+});
+
+// ===== STREAM PROXY (fixed: no double decodeURIComponent, always sets Accept-Ranges) =====
 router.get("/music/stream", async (req: Request, res: Response) => {
   const { url } = req.query as { url: string };
   if (!url) return res.status(400).json({ error: "url is required" });
 
   try {
-    const decodedUrl = decodeURIComponent(url);
+    // IMPORTANT: Express already URL-decodes req.query values once.
+    // Do NOT call decodeURIComponent(url) again — that would double-decode
+    // (turning %20 → space, breaking the upstream URL).
+    const targetUrl = url;
     const rangeHeader = req.headers.range;
 
-    const headers: Record<string, string> = {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-      "Accept": "audio/*, */*"
+    const upstreamHeaders: Record<string, string> = {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+      "Accept": "audio/webm,audio/ogg,audio/wav,audio/*;q=0.9,*/*;q=0.5",
+      "Accept-Language": "id-ID,id;q=0.9,en-US;q=0.8",
+      "Referer": "https://www.youtube.com/"
     };
-    if (rangeHeader) headers["Range"] = rangeHeader;
+    if (rangeHeader) upstreamHeaders["Range"] = rangeHeader;
 
-    const upstream = await fetch(decodedUrl, {
-      headers,
+    const upstream = await fetch(targetUrl, {
+      headers: upstreamHeaders,
       signal: AbortSignal.timeout(30000)
     });
 
     if (!upstream.ok && upstream.status !== 206) {
-      return res.status(502).json({ error: `Upstream error: ${upstream.status}` });
+      return res.status(502).json({ error: `Upstream ${upstream.status}: ${upstream.statusText}` });
     }
 
     if (!upstream.body) {
-      return res.status(502).json({ error: "No response body" });
+      return res.status(502).json({ error: "No upstream body" });
     }
 
     const contentType = upstream.headers.get("content-type") || "audio/mpeg";
     const contentLength = upstream.headers.get("content-length");
     const contentRange = upstream.headers.get("content-range");
-    const acceptRanges = upstream.headers.get("accept-ranges") || "bytes";
 
+    // Always expose range support for seekable audio
     res.setHeader("Content-Type", contentType);
-    res.setHeader("Accept-Ranges", acceptRanges);
+    res.setHeader("Accept-Ranges", "bytes");
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Headers", "Range");
-    res.setHeader("Cache-Control", "public, max-age=14400"); // 4h cache
+    res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Range, Content-Type");
+    res.setHeader("Access-Control-Expose-Headers", "Content-Length, Content-Range, Accept-Ranges");
+    res.setHeader("Cache-Control", "public, max-age=14400");
     if (contentLength) res.setHeader("Content-Length", contentLength);
     if (contentRange) res.setHeader("Content-Range", contentRange);
+    else if (rangeHeader && contentLength) {
+      // Build content-range if upstream didn't send one
+      const total = parseInt(contentLength);
+      const match = rangeHeader.match(/bytes=(\d+)-(\d*)/);
+      if (match) {
+        const start = parseInt(match[1]);
+        const end = match[2] ? parseInt(match[2]) : total - 1;
+        res.setHeader("Content-Range", `bytes ${start}-${end}/${total}`);
+      }
+    }
 
-    const statusCode = upstream.status === 206 ? 206 : 200;
-    res.status(statusCode);
+    res.status(upstream.status === 206 ? 206 : 200);
 
     const reader = upstream.body.getReader();
     const pump = async () => {
@@ -734,29 +833,22 @@ router.get("/music/stream", async (req: Request, res: Response) => {
         while (true) {
           const { done, value } = await reader.read();
           if (done) { res.end(); break; }
-          const canContinue = res.write(value);
-          if (!canContinue) {
-            await new Promise<void>(resolve => res.once("drain", resolve));
-          }
+          const ok = res.write(value);
+          if (!ok) await new Promise<void>(r => res.once("drain", r));
         }
-      } catch (err) {
+      } catch {
         try { reader.cancel(); } catch {}
-        if (!res.headersSent) res.status(500).end("Stream error");
-        else res.end();
+        if (!res.writableEnded) res.end();
       }
     };
 
-    // Handle client disconnect
     req.on("close", () => { try { reader.cancel(); } catch {} });
     req.on("aborted", () => { try { reader.cancel(); } catch {} });
 
     await pump();
   } catch (err: any) {
-    if (!res.headersSent) {
-      res.status(500).json({ error: err.message || "Stream failed" });
-    } else {
-      res.end();
-    }
+    if (!res.headersSent) res.status(500).json({ error: err.message || "Stream failed" });
+    else res.end();
   }
 });
 

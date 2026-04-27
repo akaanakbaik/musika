@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Maximize2, Minimize2, Download, Heart, ListMusic, Shuffle, Repeat, Repeat1, X, ChevronDown } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Maximize2, Download, Heart, ListMusic, Shuffle, Repeat, Repeat1, X, ChevronDown, Loader2 } from "lucide-react";
 import { usePlayer } from "@/lib/PlayerContext";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/hooks/use-toast";
@@ -21,7 +21,8 @@ function formatTime(s: number) {
 
 export function Player() {
   const {
-    currentSong, isPlaying, progress, duration, volume, isBuffering,
+    currentSong, isPlaying, isResolving, resolvingStep,
+    progress, duration, volume, isBuffering,
     shuffle, repeat, pause, resume, next, prev, setVolume, seek,
     toggleShuffle, toggleRepeat, toggleFavorite, isFavorite, queue, removeFromQueue
   } = usePlayer();
@@ -40,7 +41,7 @@ export function Player() {
   const srcInfo = sourceLabels[currentSong.source] || { label: currentSong.source, bg: "bg-gray-600" };
   const SourceIconComp = SOURCE_ICON_MAP[currentSong.source] || GlobeIcon;
 
-  const handlePlayPause = () => { if (isPlaying) pause(); else resume(); };
+  const handlePlayPause = () => { if (isResolving) return; if (isPlaying) pause(); else resume(); };
   const handleMute = () => {
     if (isMuted) { setVolume(prevVolume); setIsMuted(false); }
     else { setPrevVolume(volume); setVolume(0); setIsMuted(true); }
@@ -97,10 +98,15 @@ export function Player() {
               <img
                 src={currentSong.thumbnail}
                 alt={currentSong.title}
-                className="w-12 h-12 rounded-lg object-cover"
+                className={`w-12 h-12 rounded-lg object-cover transition-opacity duration-300 ${isResolving ? "opacity-50" : "opacity-100"}`}
                 onError={e => { (e.target as HTMLImageElement).src = "https://placehold.co/48x48/333/999?text=♪"; }}
               />
-              {isPlaying && (
+              {isResolving && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50">
+                  <Loader2 className="w-5 h-5 text-white animate-spin" />
+                </div>
+              )}
+              {!isResolving && isPlaying && (
                 <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/30">
                   <div className="flex gap-0.5">
                     {[0, 1, 2].map(i => (
@@ -112,7 +118,12 @@ export function Player() {
             </div>
             <div className="flex-1 min-w-0">
               <p className={`text-sm font-semibold truncate ${miniTextP}`}>{currentSong.title}</p>
-              <p className={`text-xs truncate ${miniTextS}`}>{currentSong.artist}</p>
+              <p className={`text-xs truncate ${miniTextS}`}>
+                {isResolving
+                  ? <span className="animate-pulse" style={{ color: accentColor }}>{resolvingStep || "Memuat…"}</span>
+                  : currentSong.artist
+                }
+              </p>
             </div>
           </div>
 
@@ -131,10 +142,13 @@ export function Player() {
             {/* Play/Pause */}
             <button
               onClick={handlePlayPause}
-              className="w-10 h-10 rounded-full flex items-center justify-center shadow-md active:scale-90 transition-transform"
+              disabled={isResolving}
+              className="w-10 h-10 rounded-full flex items-center justify-center shadow-md active:scale-90 transition-transform disabled:opacity-80"
               style={{ background: accentColor }}
             >
-              {isBuffering ? (
+              {isResolving ? (
+                <Loader2 className="w-4 h-4 text-black animate-spin" />
+              ) : isBuffering ? (
                 <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
               ) : isPlaying ? (
                 <Pause className="w-4 h-4 fill-black text-black" />
@@ -250,7 +264,12 @@ export function Player() {
               <div className="flex items-start justify-between mb-5">
                 <div className="flex-1 min-w-0 pr-4">
                   <h2 className="text-2xl font-bold text-white truncate">{currentSong.title}</h2>
-                  <p className="text-white/60 text-base truncate mt-0.5">{currentSong.artist}</p>
+                  <p className="text-white/60 text-base truncate mt-0.5">
+                    {isResolving
+                      ? <span className="animate-pulse" style={{ color: accentColor }}>{resolvingStep || "Memuat…"}</span>
+                      : currentSong.artist
+                    }
+                  </p>
                 </div>
                 <button onClick={() => toggleFavorite(currentSong)} className={`p-1.5 flex-shrink-0 transition-colors ${isFav ? "text-red-400" : "text-white/50 hover:text-white"}`}>
                   <Heart className={`w-6 h-6 ${isFav ? "fill-current" : ""}`} />
@@ -276,10 +295,13 @@ export function Player() {
                 </button>
                 <button
                   onClick={handlePlayPause}
-                  className="w-16 h-16 rounded-full flex items-center justify-center shadow-2xl active:scale-95 transition-transform"
+                  disabled={isResolving}
+                  className="w-16 h-16 rounded-full flex items-center justify-center shadow-2xl active:scale-95 transition-transform disabled:opacity-80"
                   style={{ background: accentColor }}
                 >
-                  {isBuffering ? (
+                  {isResolving ? (
+                    <Loader2 className="w-6 h-6 text-black animate-spin" />
+                  ) : isBuffering ? (
                     <div className="w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin" />
                   ) : isPlaying ? (
                     <Pause className="w-7 h-7 fill-black text-black" />

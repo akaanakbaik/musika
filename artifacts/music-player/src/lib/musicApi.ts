@@ -30,6 +30,18 @@ export interface DownloadResult {
   source: string;
 }
 
+export interface PrepareResult {
+  stream_url: string;
+  cdn_url: string | null;
+  title: string;
+  thumbnail: string;
+  artist: string;
+  album?: string;
+  source: string;
+  via_cdn: boolean;
+  cached?: boolean;
+}
+
 export async function searchMusic(q: string, source: Source = "all"): Promise<SearchResults> {
   const res = await fetch(`${BASE}/api/music/search?q=${encodeURIComponent(q)}&source=${source}`);
   const data = await res.json();
@@ -59,6 +71,18 @@ export async function downloadSong(url: string, source: string): Promise<Downloa
   const data = await res.json();
   if (!data.success) throw new Error(data.error || "Download failed");
   return data as DownloadResult;
+}
+
+export async function prepareSong(song: Song, signal?: AbortSignal): Promise<PrepareResult> {
+  const params = new URLSearchParams({
+    url:     song.url,
+    source:  song.source,
+    videoId: song.videoId
+  });
+  const res = await fetch(`${BASE}/api/music/prepare?${params}`, { signal });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || "Gagal menyiapkan lagu");
+  return data as PrepareResult;
 }
 
 export async function downloadSongByQuery(q: string, source: string = "spotify"): Promise<DownloadResult> {
