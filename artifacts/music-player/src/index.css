@@ -182,4 +182,111 @@
   .hover-elevate:hover:not(.no-default-hover-elevate)::after {
     background-color: var(--elevate-1);
   }
+
+  /* ===== PWA Splash & Loading Animations ===== */
+
+  @keyframes musicBar {
+    0%, 100% { height: 6px; opacity: 0.5; }
+    50% { height: 22px; opacity: 1; }
+  }
+
+  @keyframes splashBounce {
+    0% { transform: scale(0.7) translateY(20px); opacity: 0; }
+    60% { transform: scale(1.08) translateY(-4px); opacity: 1; }
+    80% { transform: scale(0.97) translateY(2px); }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  @keyframes slideUpFade {
+    from { transform: translateY(16px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes ripple {
+    0% { transform: scale(0); opacity: 0.4; }
+    100% { transform: scale(4); opacity: 0; }
+  }
+
+  .splash-bounce {
+    animation: splashBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+  }
+
+  .splash-slide-up {
+    opacity: 0;
+    animation: slideUpFade 0.5s ease forwards;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.35s ease forwards;
+  }
+
+  .animate-scale-in {
+    animation: scaleIn 0.25s ease forwards;
+  }
+
+  /* Skeleton shimmer */
+  .skeleton {
+    background: linear-gradient(90deg, #1a1a1a 25%, #222 50%, #1a1a1a 75%);
+    background-size: 400px 100%;
+    animation: shimmer 1.4s ease infinite;
+    border-radius: 6px;
+  }
+
+  /* Interactive button press */
+  .btn-press {
+    transition: transform 0.1s ease, opacity 0.1s ease;
+  }
+  .btn-press:active {
+    transform: scale(0.96);
+    opacity: 0.85;
+  }
+
+  /* Ripple effect container */
+  .ripple-container {
+    position: relative;
+    overflow: hidden;
+  }
+  .ripple-container::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 20px; height: 20px;
+    margin: -10px 0 0 -10px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    transform: scale(0);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .ripple-container:active::after {
+    animation: ripple 0.5s ease-out forwards;
+  }
+
+  /* Page content fade-in */
+  .page-enter {
+    animation: fadeIn 0.3s ease forwards;
+  }
+
+  /* Safe area for PWA */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
 }
