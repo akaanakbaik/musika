@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { Heart, Music, Lock } from "lucide-react";
+import { Heart, Music, Lock, RefreshCw } from "lucide-react";
 import { SongCard } from "@/components/SongCard";
 import { useAuth } from "@/lib/AuthContext";
 import { supabase } from "@/lib/supabase";
 import type { Song } from "@/lib/musicApi";
 import { Link } from "wouter";
+import { useAppSettings } from "@/lib/AppSettingsContext";
+import { t } from "@/lib/i18n";
 
 export default function Favorites() {
   const { user } = useAuth();
+  const { theme, accentColor, lang } = useAppSettings();
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const isDark = theme === "dark";
+  const bg = isDark ? "bg-[#121212]" : "bg-[#F5F5F5]";
+  const textP = isDark ? "text-white" : "text-[#121212]";
+  const textS = isDark ? "text-white/50" : "text-[#121212]/50";
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -23,7 +31,6 @@ export default function Favorites() {
       .select("*")
       .eq("user_id", user!.id)
       .order("liked_at", { ascending: false });
-    
     setSongs((data || []).map((f: any) => ({
       videoId: f.video_id,
       title: f.title,
@@ -38,30 +45,32 @@ export default function Favorites() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#121212] flex flex-col items-center justify-center text-center px-4">
-        <Lock className="w-16 h-16 text-white/20 mb-4" />
-        <h2 className="text-white text-2xl font-bold mb-2">Sign in to see your Liked Songs</h2>
-        <p className="text-white/50 text-sm mb-6">Save songs you love and access them anytime</p>
-        <Link href="/auth" className="bg-[#1DB954] text-black font-bold px-8 py-3 rounded-full hover:bg-[#1ed760] transition-colors">
-          Sign In
+      <div className={`min-h-screen ${bg} flex flex-col items-center justify-center text-center px-4`}>
+        <Lock className={`w-16 h-16 mb-4 ${textS}`} />
+        <h2 className={`text-2xl font-bold mb-2 ${textP}`}>{lang === "en" ? "Sign in to see your Liked Songs" : "Masuk untuk melihat Lagu Disukai"}</h2>
+        <p className={`text-sm mb-6 ${textS}`}>{lang === "en" ? "Save songs you love and access them anytime" : "Simpan lagu favorit dan akses kapan saja"}</p>
+        <Link href="/auth" className="font-bold px-8 py-3 rounded-full text-black" style={{ background: accentColor }}>
+          {t(lang, "sign_in")}
         </Link>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8">
-      {/* Header */}
-      <div className="bg-gradient-to-b from-purple-900 to-[#121212] px-6 pt-8 pb-6">
-        <div className="flex items-end gap-6">
-          <div className="w-40 h-40 rounded-2xl bg-gradient-to-br from-purple-400 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-2xl">
-            <Heart className="w-20 h-20 text-white fill-white" />
+    <div className={`min-h-screen ${bg} pb-24 md:pb-8`}>
+      <div className="bg-gradient-to-b from-purple-900/60 to-transparent px-6 pt-8 pb-6">
+        <div className="flex items-end gap-4 md:gap-6">
+          <div className="w-28 h-28 md:w-40 md:h-40 rounded-2xl bg-gradient-to-br from-purple-400 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-2xl">
+            <Heart className="w-14 h-14 md:w-20 md:h-20 text-white fill-white" />
           </div>
-          <div>
-            <p className="text-white/60 text-sm uppercase font-semibold tracking-wider mb-1">Playlist</p>
-            <h1 className="text-white text-4xl md:text-5xl font-black mb-2">Liked Songs</h1>
-            <p className="text-white/60 text-sm">{songs.length} songs</p>
+          <div className="flex-1 min-w-0">
+            <p className={`text-xs uppercase font-semibold tracking-wider mb-1 ${textS}`}>{lang === "en" ? "Playlist" : "Playlist"}</p>
+            <h1 className={`text-3xl md:text-5xl font-black mb-1 ${textP}`}>{t(lang, "favorites")}</h1>
+            <p className={`text-sm ${textS}`}>{songs.length} {lang === "en" ? "songs" : "lagu"}</p>
           </div>
+          <button onClick={loadFavorites} className={`p-2 rounded-full ${isDark ? "bg-white/10 hover:bg-white/20" : "bg-black/10 hover:bg-black/20"} transition-colors flex-shrink-0`}>
+            <RefreshCw className={`w-4 h-4 ${textS}`} />
+          </button>
         </div>
       </div>
 
@@ -69,20 +78,20 @@ export default function Favorites() {
         {loading ? (
           <div className="space-y-2 mt-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
-                <div className="w-10 h-10 bg-white/10 rounded" />
+              <div key={i} className={`flex items-center gap-3 p-3 rounded-xl animate-pulse ${isDark ? "bg-white/5" : "bg-black/5"}`}>
+                <div className={`w-12 h-12 rounded-lg ${isDark ? "bg-white/10" : "bg-black/10"}`} />
                 <div className="flex-1">
-                  <div className="h-3 bg-white/10 rounded w-3/4 mb-2" />
-                  <div className="h-2 bg-white/10 rounded w-1/2" />
+                  <div className={`h-3 rounded-full w-3/4 mb-2 ${isDark ? "bg-white/10" : "bg-black/10"}`} />
+                  <div className={`h-2 rounded-full w-1/2 ${isDark ? "bg-white/10" : "bg-black/10"}`} />
                 </div>
               </div>
             ))}
           </div>
         ) : songs.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <Heart className="w-16 h-16 text-white/20 mb-4" />
-            <h3 className="text-white text-xl font-semibold mb-2">Songs you like will appear here</h3>
-            <p className="text-white/50 text-sm">Save songs by tapping the heart icon</p>
+            <Heart className={`w-16 h-16 mb-4 ${textS}`} />
+            <h3 className={`text-xl font-semibold mb-2 ${textP}`}>{lang === "en" ? "Songs you like will appear here" : "Lagu yang kamu sukai akan muncul di sini"}</h3>
+            <p className={`text-sm ${textS}`}>{lang === "en" ? "Tap the heart icon to save songs" : "Ketuk ikon hati untuk menyimpan lagu"}</p>
           </div>
         ) : (
           <div className="mt-4 space-y-1">

@@ -3,124 +3,113 @@ import { Link, useLocation } from "wouter";
 import { Home, Search, Heart, Clock, Library, Plus, Bot, Download, LogOut, User, ChevronRight } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { usePlayer } from "@/lib/PlayerContext";
+import { useAppSettings } from "@/lib/AppSettingsContext";
+import { t } from "@/lib/i18n";
 import { toast } from "@/hooks/use-toast";
 
-const LOGO_DARK = "https://raw.githubusercontent.com/akaanakbaik/my-cdn/main/musika/logonobglatar121212.png";
-
-const navItems = [
-  { path: "/", icon: Home, label: "Home" },
-  { path: "/search", icon: Search, label: "Search" },
-  { path: "/favorites", icon: Heart, label: "Liked Songs" },
-  { path: "/history", icon: Clock, label: "History" },
-  { path: "/playlists", icon: Library, label: "Your Library" },
-  { path: "/ai", icon: Bot, label: "Musika AI" },
-  { path: "/download-app", icon: Download, label: "Download App" },
-];
+const LOGO = "https://raw.githubusercontent.com/akaanakbaik/my-cdn/main/musika/logonobglatar121212.png";
 
 export function Sidebar() {
   const [location, navigate] = useLocation();
   const { user, profile, signOut } = useAuth();
   const { queue } = usePlayer();
+  const { theme, accentColor, lang } = useAppSettings();
   const [collapsed, setCollapsed] = useState(false);
+
+  const isDark = theme === "dark";
+  const sidebarBg = isDark ? "bg-[#121212] border-white/5" : "bg-white border-black/8";
+  const textP = isDark ? "text-white" : "text-[#121212]";
+  const textS = isDark ? "text-white/50" : "text-[#121212]/50";
+  const activeClass = isDark ? "bg-white/10 text-white" : "bg-black/8 text-[#121212]";
+  const inactiveClass = isDark ? "text-white/60 hover:text-white hover:bg-white/5" : "text-[#121212]/60 hover:text-[#121212] hover:bg-black/5";
+
+  const navItems = [
+    { path: "/", icon: Home, labelKey: "home" as const },
+    { path: "/search", icon: Search, labelKey: "search" as const },
+    { path: "/favorites", icon: Heart, labelKey: "favorites" as const },
+    { path: "/history", icon: Clock, labelKey: "history" as const },
+    { path: "/playlists", icon: Library, labelKey: "library" as const },
+    { path: "/ai", icon: Bot, labelKey: "ai" as const },
+    { path: "/download-app", icon: Download, labelKey: "download_app" as const },
+  ];
 
   const handleSignOut = async () => {
     await signOut();
-    toast({ title: "Signed out successfully" });
+    toast({ title: "✓ " + t(lang, "sign_out") });
     navigate("/");
   };
 
   return (
-    <aside
-      className={`hidden md:flex flex-col h-screen bg-[#121212] border-r border-white/5 transition-all duration-300 ${collapsed ? "w-16" : "w-64"} flex-shrink-0`}
-    >
-      {/* Logo */}
-      <div className={`flex items-center px-4 h-16 border-b border-white/5 ${collapsed ? "justify-center" : "justify-between"}`}>
+    <aside className={`hidden md:flex flex-col h-screen border-r transition-all duration-300 ${sidebarBg} ${collapsed ? "w-16" : "w-64"} flex-shrink-0`}>
+      <div className={`flex items-center px-4 h-16 border-b ${isDark ? "border-white/5" : "border-black/8"} ${collapsed ? "justify-center" : "justify-between"}`}>
         {!collapsed && (
-          <img src={LOGO_DARK} alt="musika" className="h-8 object-contain" />
+          <div className="flex items-center gap-2">
+            <img src={LOGO} alt="musika" className="h-7 w-7 object-contain" />
+            <span className={`text-base font-black tracking-tight ${textP}`}>musi<span style={{ color: accentColor }}>ka</span></span>
+          </div>
         )}
-        <button
-          onClick={() => setCollapsed(c => !c)}
-          className="text-white/50 hover:text-white p-1 rounded transition-colors"
-        >
+        <button onClick={() => setCollapsed(c => !c)} className={`${textS} hover:${textP === "text-white" ? "text-white" : "text-[#121212]"} p-1 rounded transition-colors`}>
           <ChevronRight className={`w-4 h-4 transition-transform ${collapsed ? "" : "rotate-180"}`} />
         </button>
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 py-4 overflow-y-auto scrollbar-hide">
-        {navItems.map(({ path, icon: Icon, label }) => {
-          const active = location === path;
+        {navItems.map(({ path, icon: Icon, labelKey }) => {
+          const active = location === path || (path !== "/" && location.startsWith(path));
           return (
             <Link
               key={path}
               href={path}
-              className={`flex items-center gap-4 px-4 py-3 mx-2 rounded-lg transition-all duration-150 cursor-pointer
-                ${active ? "bg-white/10 text-white" : "text-white/60 hover:text-white hover:bg-white/5"}`}
-              title={collapsed ? label : undefined}
+              className={`flex items-center gap-4 px-4 py-3 mx-2 rounded-lg transition-all duration-150 cursor-pointer ${active ? activeClass : inactiveClass}`}
+              title={collapsed ? t(lang, labelKey) : undefined}
             >
-              <Icon className="w-5 h-5 flex-shrink-0" />
-              {!collapsed && <span className="text-sm font-medium">{label}</span>}
+              <Icon className="w-5 h-5 flex-shrink-0" style={active ? { color: accentColor } : {}} />
+              {!collapsed && <span className="text-sm font-medium">{t(lang, labelKey)}</span>}
             </Link>
           );
         })}
 
-        {/* Playlists section */}
         {!collapsed && (
           <div className="mx-4 mt-4 mb-2">
-            <div className="flex items-center justify-between text-white/40 text-xs font-semibold uppercase tracking-wider px-2 mb-2">
-              <span>Playlists</span>
-              <button
-                onClick={() => navigate("/playlists")}
-                className="hover:text-white transition-colors"
-              >
+            <div className={`flex items-center justify-between text-xs font-semibold uppercase tracking-wider px-2 mb-2 ${textS}`}>
+              <span>{t(lang, "playlists")}</span>
+              <button onClick={() => navigate("/playlists")} className={`hover:${textP === "text-white" ? "text-white" : "text-[#121212]"} transition-colors`}>
                 <Plus className="w-4 h-4" />
               </button>
             </div>
-            {queue.length === 0 ? (
-              <p className="text-white/30 text-xs px-2">Your playlists will appear here</p>
-            ) : (
-              <p className="text-white/30 text-xs px-2">{queue.length} songs in queue</p>
-            )}
+            <p className={`text-xs px-2 ${textS}`}>{queue.length === 0 ? (lang === "en" ? "Your playlists will appear here" : "Playlist kamu akan muncul di sini") : `${queue.length} ${lang === "en" ? "songs in queue" : "lagu dalam antrean"}`}</p>
           </div>
         )}
       </nav>
 
-      {/* User */}
-      <div className="border-t border-white/5 p-3">
+      <div className={`border-t ${isDark ? "border-white/5" : "border-black/8"} p-3`}>
         {user ? (
           <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
-            <button onClick={() => navigate("/profile")} className="flex-shrink-0">
+            <div className="flex-shrink-0 w-8 h-8">
               {profile?.avatar_url ? (
                 <img src={profile.avatar_url} className="w-8 h-8 rounded-full object-cover" alt="avatar" />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-[#1DB954] flex items-center justify-center text-black text-sm font-bold">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-black text-sm font-bold" style={{ background: accentColor }}>
                   {(profile?.username || user.email || "U")[0].toUpperCase()}
                 </div>
               )}
-            </button>
+            </div>
             {!collapsed && (
               <>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium truncate">{profile?.username || user.email?.split("@")[0]}</p>
-                  <p className="text-white/40 text-xs truncate">{user.email}</p>
+                  <p className={`text-sm font-medium truncate ${textP}`}>{profile?.username || user.email?.split("@")[0]}</p>
+                  <p className={`text-xs truncate ${textS}`}>{user.email}</p>
                 </div>
-                <button
-                  onClick={handleSignOut}
-                  className="text-white/40 hover:text-white p-1 transition-colors flex-shrink-0"
-                  title="Sign out"
-                >
+                <button onClick={handleSignOut} className={`${textS} hover:text-red-400 p-1 transition-colors flex-shrink-0`} title={t(lang, "sign_out")}>
                   <LogOut className="w-4 h-4" />
                 </button>
               </>
             )}
           </div>
         ) : (
-          <Link
-            href="/auth"
-            className={`flex items-center gap-3 text-white/60 hover:text-white transition-colors cursor-pointer ${collapsed ? "justify-center" : ""}`}
-          >
+          <Link href="/auth" className={`flex items-center gap-3 ${textS} hover:${textP === "text-white" ? "text-white" : "text-[#121212]"} transition-colors cursor-pointer ${collapsed ? "justify-center" : ""}`}>
             <User className="w-5 h-5 flex-shrink-0" />
-            {!collapsed && <span className="text-sm font-medium">Sign In</span>}
+            {!collapsed && <span className="text-sm font-medium">{t(lang, "sign_in")}</span>}
           </Link>
         )}
       </div>
