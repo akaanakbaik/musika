@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 export const config = { maxDuration: 30 };
 
 function msToTimestamp(ms: number): string {

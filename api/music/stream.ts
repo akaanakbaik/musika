@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 export const config = { maxDuration: 60 };
 
 export default async function handler(req: any, res: any) {
