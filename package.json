@@ -10,7 +10,13 @@
   },
   "private": true,
   "devDependencies": {
-    "typescript": "~5.9.2",
-    "prettier": "^3.8.1"
+    "prettier": "^3.8.1",
+    "typescript": "~5.9.2"
+  },
+  "dependencies": {
+    "@types/nodemailer": "^8.0.0",
+    "@types/pg": "^8.18.0",
+    "nodemailer": "^8.0.6",
+    "pg": "^8.20.0"
   }
 }
