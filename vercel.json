@@ -4,21 +4,12 @@
   "outputDirectory": "artifacts/music-player/dist/public",
   "functions": {
     "api/**/*.ts": {
-      "memory": 512,
-      "maxDuration": 30
-    },
-    "api/music/stream.ts": {
       "memory": 1024,
       "maxDuration": 60
     }
   },
   "rewrites": [
-    { "source": "/api/music/search", "destination": "/api/music/search" },
-    { "source": "/api/music/download", "destination": "/api/music/download" },
-    { "source": "/api/music/stream", "destination": "/api/music/stream" },
-    { "source": "/api/music/recommendations", "destination": "/api/music/recommendations" },
-    { "source": "/api/ai/chat", "destination": "/api/ai/chat" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
