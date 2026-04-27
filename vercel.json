@@ -1,7 +1,46 @@
 {
+  "version": 2,
   "buildCommand": "pnpm --filter @workspace/music-player run build",
   "outputDirectory": "artifacts/music-player/dist/public",
-  "installCommand": "pnpm install",
-  "framework": null,
-  "rewrites": []
+  "functions": {
+    "api/**/*.ts": {
+      "memory": 512,
+      "maxDuration": 30
+    },
+    "api/music/stream.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    { "source": "/api/music/search", "destination": "/api/music/search" },
+    { "source": "/api/music/download", "destination": "/api/music/download" },
+    { "source": "/api/music/stream", "destination": "/api/music/stream" },
+    { "source": "/api/music/recommendations", "destination": "/api/music/recommendations" },
+    { "source": "/api/ai/chat", "destination": "/api/ai/chat" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    }
+  ]
 }

@@ -1,17 +1,23 @@
 import React, { useState, useEffect } from "react";
-import { Download, Smartphone, Wifi, Bell, Music, Shield, Zap, Globe, Star, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Download, Music, WifiOff, Bot, Bell, Zap, Shield, Globe, Star, ChevronDown, ChevronUp, Smartphone, MonitorSmartphone } from "lucide-react";
 
 const LOGO = "https://raw.githubusercontent.com/akaanakbaik/my-cdn/main/musika/logonobglatar121212.png";
 
 const features = [
-  { icon: "🎵", title: "All Music Sources", desc: "YouTube, Spotify, Apple Music & SoundCloud in one app" },
-  { icon: "📴", title: "Offline Mode", desc: "Download and listen without internet connection" },
-  { icon: "🤖", title: "AI Assistant", desc: "Get personalized music recommendations from Musika AI" },
-  { icon: "🔔", title: "Media Controls", desc: "Control playback from your lock screen & notification bar" },
-  { icon: "⚡", title: "Lightning Fast", desc: "Instant search and gapless playback" },
-  { icon: "🔒", title: "Privacy First", desc: "Your data stays yours — secure with Supabase" },
-  { icon: "🌍", title: "Any Language", desc: "AI speaks your language — Indonesian & English" },
-  { icon: "🎨", title: "Dark & Light", desc: "Beautiful themes that adapt to your preference" },
+  { Icon: Music, title: "All Music Sources", desc: "YouTube, Spotify, Apple Music & SoundCloud in one app" },
+  { Icon: WifiOff, title: "Offline Mode", desc: "Download and listen without internet connection" },
+  { Icon: Bot, title: "AI Assistant", desc: "Get personalized music recommendations from Musika AI" },
+  { Icon: Bell, title: "Media Controls", desc: "Control playback from your lock screen & notification bar" },
+  { Icon: Zap, title: "Lightning Fast", desc: "Instant search and gapless playback" },
+  { Icon: Shield, title: "Privacy First", desc: "Your data stays yours — secure with Supabase" },
+  { Icon: Globe, title: "Any Language", desc: "AI speaks your language — Indonesian & English" },
+  { Icon: Smartphone, title: "Dark & Light", desc: "Beautiful themes that adapt to your preference" },
+];
+
+const installSteps = [
+  { step: "1", Icon: Globe, title: "Open in Browser", desc: "Visit Musika in Chrome, Safari, or Edge" },
+  { step: "2", Icon: Download, title: "Click Install", desc: "Tap the Install button or use browser menu" },
+  { step: "3", Icon: Music, title: "Enjoy!", desc: "Musika is now on your home screen ready to use" },
 ];
 
 const reviews = [
@@ -70,7 +76,7 @@ export default function DownloadApp() {
             className="flex items-center gap-3 bg-[#1DB954] text-black font-bold px-8 py-4 rounded-full text-lg hover:bg-[#1ed760] transition-all hover:scale-105 active:scale-95 disabled:opacity-60 shadow-lg shadow-[#1DB954]/30"
           >
             <Download className="w-6 h-6" />
-            {installed ? "App Installed ✓" : "Install App — Free"}
+            {installed ? "App Installed" : "Install App — Free"}
           </button>
           <div className="text-white/40 text-sm">
             <p>Available on Android, iOS, Desktop</p>
@@ -82,8 +88,8 @@ export default function DownloadApp() {
         <div className="mt-12 flex items-end justify-center gap-4">
           <div className="w-32 h-56 bg-[#1A1A1A] rounded-[24px] border-2 border-white/10 shadow-2xl flex items-center justify-center overflow-hidden">
             <div className="w-full h-full bg-gradient-to-b from-[#1DB954]/20 to-transparent flex flex-col items-center justify-center gap-2">
-              <Music className="w-10 h-10 text-[#1DB954]" />
-              <span className="text-white/60 text-xs text-center px-2">Musika</span>
+              <Smartphone className="w-10 h-10 text-[#1DB954]" />
+              <span className="text-white/60 text-xs text-center px-2">Mobile</span>
             </div>
           </div>
           <div className="w-48 h-72 bg-[#1A1A1A] rounded-[28px] border-2 border-white/10 shadow-2xl flex items-center justify-center overflow-hidden -mb-4">
@@ -101,7 +107,7 @@ export default function DownloadApp() {
           </div>
           <div className="w-32 h-56 bg-[#1A1A1A] rounded-[24px] border-2 border-white/10 shadow-2xl flex items-center justify-center overflow-hidden">
             <div className="w-full h-full bg-gradient-to-b from-[#1DB954]/20 to-transparent flex flex-col items-center justify-center gap-2">
-              <Globe className="w-10 h-10 text-[#1DB954]" />
+              <MonitorSmartphone className="w-10 h-10 text-[#1DB954]" />
               <span className="text-white/60 text-xs text-center px-2">Desktop</span>
             </div>
           </div>
@@ -113,9 +119,11 @@ export default function DownloadApp() {
         <h2 className="text-3xl font-black text-center mb-3">Everything you need</h2>
         <p className="text-white/50 text-center mb-10">Built for music lovers who demand the best</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {features.map(({ icon, title, desc }) => (
+          {features.map(({ Icon, title, desc }) => (
             <div key={title} className="bg-[#1A1A1A] border border-white/5 rounded-2xl p-6 hover:border-[#1DB954]/30 transition-colors">
-              <div className="text-3xl mb-3">{icon}</div>
+              <div className="w-10 h-10 rounded-xl bg-[#1DB954]/10 flex items-center justify-center mb-3">
+                <Icon className="w-5 h-5 text-[#1DB954]" />
+              </div>
               <h3 className="text-white font-bold mb-1">{title}</h3>
               <p className="text-white/50 text-sm">{desc}</p>
             </div>
@@ -127,14 +135,12 @@ export default function DownloadApp() {
       <div className="px-4 md:px-8 py-12 bg-[#1A1A1A] mx-4 md:mx-8 rounded-3xl border border-white/5 mb-12">
         <h2 className="text-2xl font-black text-center mb-8">How to Install</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto">
-          {[
-            { step: "1", icon: "🌐", title: "Open in Browser", desc: "Visit musika app in Chrome, Safari, or Edge" },
-            { step: "2", icon: "📲", title: "Click Install", desc: "Tap the Install button or use browser menu" },
-            { step: "3", icon: "🎵", title: "Enjoy!", desc: "Musika is now on your home screen ready to use" },
-          ].map(({ step, icon, title, desc }) => (
+          {installSteps.map(({ step, Icon, title, desc }) => (
             <div key={step} className="text-center">
               <div className="w-12 h-12 rounded-full bg-[#1DB954] text-black font-black text-lg flex items-center justify-center mx-auto mb-3">{step}</div>
-              <div className="text-2xl mb-2">{icon}</div>
+              <div className="flex items-center justify-center mb-2">
+                <Icon className="w-6 h-6 text-[#1DB954]" />
+              </div>
               <h3 className="text-white font-bold mb-1">{title}</h3>
               <p className="text-white/50 text-sm">{desc}</p>
             </div>
@@ -191,7 +197,7 @@ export default function DownloadApp() {
           className="flex items-center gap-3 bg-[#1DB954] text-black font-bold px-10 py-4 rounded-full text-lg hover:bg-[#1ed760] transition-all hover:scale-105 mx-auto disabled:opacity-60 shadow-lg shadow-[#1DB954]/30"
         >
           <Download className="w-6 h-6" />
-          {installed ? "Already Installed ✓" : "Install Musika Free"}
+          {installed ? "Already Installed" : "Install Musika Free"}
         </button>
       </div>
     </div>

@@ -1,10 +1,18 @@
 import React, { useState } from "react";
-import { Play, Pause, Heart, MoreHorizontal, Plus, Download, Clock, Share2 } from "lucide-react";
+import { Play, Pause, Heart, MoreHorizontal, Plus, Download } from "lucide-react";
 import type { Song } from "@/lib/musicApi";
 import { usePlayer } from "@/lib/PlayerContext";
-import { sourceLabels, sourceIcons } from "@/lib/musicApi";
+import { sourceLabels } from "@/lib/musicApi";
+import { YouTubeIcon, SpotifyIcon, AppleMusicIcon, SoundCloudIcon, GlobeIcon } from "@/components/SourceIcon";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
+
+const SOURCE_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  youtube: YouTubeIcon,
+  spotify: SpotifyIcon,
+  apple: AppleMusicIcon,
+  soundcloud: SoundCloudIcon,
+};
 
 interface SongCardProps {
   song: Song;
@@ -21,6 +29,7 @@ export function SongCard({ song, queue, variant = "default", index }: SongCardPr
   const isActive = currentSong?.videoId === song.videoId;
   const isFav = isFavorite(song.videoId);
   const srcInfo = sourceLabels[song.source] || { label: song.source, color: "#888", bg: "bg-gray-600" };
+  const SourceIconComp = SOURCE_ICON_MAP[song.source] || GlobeIcon;
 
   const handlePlay = () => {
     if (isActive) {
@@ -70,13 +79,13 @@ export function SongCard({ song, queue, variant = "default", index }: SongCardPr
         <div className="w-6 hidden group-hover:flex items-center justify-center">
           {isActive && isPlaying ? <Pause className="w-4 h-4 text-white" /> : <Play className="w-4 h-4 text-white fill-white" />}
         </div>
-        <img src={song.thumbnail} alt={song.title} className="w-10 h-10 rounded object-cover flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/40x40/333/999?text=♪"; }} />
+        <img src={song.thumbnail} alt={song.title} className="w-10 h-10 rounded object-cover flex-shrink-0" onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/40x40/333/999?text=M"; }} />
         <div className="flex-1 min-w-0">
           <p className={`text-sm font-medium truncate ${isActive ? "text-[#1DB954]" : "text-white"}`}>{song.title}</p>
           <p className="text-xs text-white/50 truncate">{song.artist}</p>
         </div>
-        <span className={`text-xs px-2 py-0.5 rounded-full ${srcInfo.bg} text-white font-medium flex-shrink-0`}>
-          {sourceIcons[song.source]} {srcInfo.label}
+        <span className={`text-xs px-2 py-0.5 rounded-full ${srcInfo.bg} text-white font-medium flex-shrink-0 flex items-center gap-1`}>
+          <SourceIconComp className="w-2.5 h-2.5" /> {srcInfo.label}
         </span>
         <span className="text-white/40 text-xs flex-shrink-0">{song.duration}</span>
         <button
@@ -114,15 +123,15 @@ export function SongCard({ song, queue, variant = "default", index }: SongCardPr
           src={song.thumbnail}
           alt={song.title}
           className="w-full aspect-square object-cover rounded-md shadow-lg"
-          onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/200x200/333/999?text=♪"; }}
+          onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/200x200/333/999?text=M"; }}
         />
         <button
-          className={`absolute bottom-2 right-2 w-12 h-12 rounded-full bg-[#1DB954] text-black flex items-center justify-center shadow-lg transition-all duration-200 translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 hover:scale-105`}
+          className="absolute bottom-2 right-2 w-12 h-12 rounded-full bg-[#1DB954] text-black flex items-center justify-center shadow-lg transition-all duration-200 translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 hover:scale-105"
         >
           {isActive && isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
         </button>
-        <span className={`absolute top-2 left-2 text-xs px-2 py-0.5 rounded-full ${srcInfo.bg} text-white font-medium`}>
-          {sourceIcons[song.source]} {srcInfo.label}
+        <span className={`absolute top-2 left-2 text-xs px-2 py-0.5 rounded-full ${srcInfo.bg} text-white font-medium flex items-center gap-1`}>
+          <SourceIconComp className="w-2.5 h-2.5" /> {srcInfo.label}
         </span>
       </div>
       <div className="flex-1 min-w-0" onClick={handlePlay}>

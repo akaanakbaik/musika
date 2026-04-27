@@ -76,9 +76,9 @@ export const sourceLabels: Record<string, { label: string; color: string; bg: st
   soundcloud: { label: "SoundCloud", color: "#FF5500", bg: "bg-orange-500" }
 };
 
-export const sourceIcons: Record<string, string> = {
-  youtube: "🎬",
-  spotify: "🎵",
-  apple: "🍎",
-  soundcloud: "☁️"
+export const sourceIconNames: Record<string, string> = {
+  youtube: "youtube",
+  spotify: "spotify",
+  apple: "apple",
+  soundcloud: "soundcloud"
 };

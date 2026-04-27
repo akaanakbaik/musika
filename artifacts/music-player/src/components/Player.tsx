@@ -3,7 +3,15 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Maximize2, Minimi
 import { usePlayer } from "@/lib/PlayerContext";
 import { Slider } from "@/components/ui/slider";
 import { toast } from "@/hooks/use-toast";
-import { sourceLabels, sourceIcons } from "@/lib/musicApi";
+import { sourceLabels } from "@/lib/musicApi";
+import { YouTubeIcon, SpotifyIcon, AppleMusicIcon, SoundCloudIcon, GlobeIcon } from "@/components/SourceIcon";
+
+const SOURCE_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  youtube: YouTubeIcon,
+  spotify: SpotifyIcon,
+  apple: AppleMusicIcon,
+  soundcloud: SoundCloudIcon,
+};
 
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
@@ -32,6 +40,7 @@ export function Player() {
 
   const isFav = isFavorite(currentSong.videoId);
   const srcInfo = sourceLabels[currentSong.source] || { label: currentSong.source, bg: "bg-gray-600" };
+  const SourceIconComp = SOURCE_ICON_MAP[currentSong.source] || GlobeIcon;
   const progressPct = duration ? (progress / duration) * 100 : 0;
 
   const handlePlayPause = () => { if (isPlaying) pause(); else resume(); };
@@ -89,8 +98,8 @@ export function Player() {
               onClick={() => setIsExpanded(true)}
             >{currentSong.title}</p>
             <p className="text-white/60 text-xs truncate">{currentSong.artist}</p>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${srcInfo.bg} text-white font-medium`}>
-              {sourceIcons[currentSong.source]} {srcInfo.label}
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${srcInfo.bg} text-white font-medium flex items-center gap-1`}>
+              <SourceIconComp className="w-2.5 h-2.5" /> {srcInfo.label}
             </span>
           </div>
           <button
@@ -223,8 +232,8 @@ export function Player() {
                 <div className="flex-1 min-w-0 pr-4">
                   <h2 className="text-2xl font-bold text-white truncate">{currentSong.title}</h2>
                   <p className="text-white/60 truncate">{currentSong.artist}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${srcInfo.bg} text-white font-medium mt-1 inline-block`}>
-                    {sourceIcons[currentSong.source]} {srcInfo.label}
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${srcInfo.bg} text-white font-medium mt-1 inline-flex items-center gap-1`}>
+                    <SourceIconComp className="w-3 h-3" /> {srcInfo.label}
                   </span>
                 </div>
                 <button onClick={() => toggleFavorite(currentSong)} className={`p-2 flex-shrink-0 ${isFav ? "text-[#1DB954]" : "text-white/50 hover:text-white"}`}>

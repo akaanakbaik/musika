@@ -1,15 +1,24 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { SongCard } from "@/components/SongCard";
-import { searchMusic, type Song, type Source, sourceLabels, sourceIcons } from "@/lib/musicApi";
-import { Search, Filter, Loader2, Music, Youtube } from "lucide-react";
+import { searchMusic, type Song, type Source, sourceLabels } from "@/lib/musicApi";
+import { Search, Loader2, Music } from "lucide-react";
+import { YouTubeIcon, SpotifyIcon, AppleMusicIcon, SoundCloudIcon, GlobeIcon } from "@/components/SourceIcon";
 
-const sources: { key: Source; label: string; icon: string }[] = [
-  { key: "all", label: "All", icon: "🌐" },
-  { key: "youtube", label: "YouTube", icon: "🎬" },
-  { key: "spotify", label: "Spotify", icon: "🎵" },
-  { key: "apple", label: "Apple Music", icon: "🍎" },
-  { key: "soundcloud", label: "SoundCloud", icon: "☁️" },
+const SOURCE_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  all: GlobeIcon,
+  youtube: YouTubeIcon,
+  spotify: SpotifyIcon,
+  apple: AppleMusicIcon,
+  soundcloud: SoundCloudIcon,
+};
+
+const sources: { key: Source; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "youtube", label: "YouTube" },
+  { key: "spotify", label: "Spotify" },
+  { key: "apple", label: "Apple Music" },
+  { key: "soundcloud", label: "SoundCloud" },
 ];
 
 export default function SearchResults() {
@@ -63,7 +72,7 @@ export default function SearchResults() {
           <input
             value={inputVal}
             onChange={e => setInputVal(e.target.value)}
-            placeholder="Search songs, artists, albums…"
+            placeholder="Search songs, artists, albums..."
             className="w-full bg-white/10 border border-white/10 rounded-full pl-12 pr-32 py-3 text-white placeholder:text-white/40 focus:outline-none focus:border-[#1DB954] focus:bg-white/15 transition-all"
           />
           <button
@@ -75,21 +84,24 @@ export default function SearchResults() {
         </form>
 
         {/* Source filter */}
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-          {sources.map(({ key, label, icon }) => (
-            <button
-              key={key}
-              onClick={() => handleSourceChange(key)}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                activeSource === key
-                  ? "bg-white text-black"
-                  : "bg-white/10 text-white/70 hover:bg-white/20"
-              }`}
-            >
-              <span>{icon}</span>
-              <span>{label}</span>
-            </button>
-          ))}
+        <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+          {sources.map(({ key, label }) => {
+            const IconComp = SOURCE_ICON_MAP[key];
+            return (
+              <button
+                key={key}
+                onClick={() => handleSourceChange(key)}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  activeSource === key
+                    ? "bg-white text-black"
+                    : "bg-white/10 text-white/70 hover:bg-white/20"
+                }`}
+              >
+                <IconComp className="w-3.5 h-3.5" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -103,7 +115,7 @@ export default function SearchResults() {
       ) : loading ? (
         <div className="flex flex-col items-center justify-center py-32">
           <Loader2 className="w-10 h-10 text-[#1DB954] animate-spin mb-4" />
-          <p className="text-white/60">Searching across all sources…</p>
+          <p className="text-white/60">Searching across all sources...</p>
         </div>
       ) : (
         <div className="mt-6 space-y-8">
@@ -111,10 +123,11 @@ export default function SearchResults() {
             Object.entries(results).map(([src, songs]) => {
               if (!songs || songs.length === 0) return null;
               const srcInfo = sourceLabels[src] || { label: src };
+              const IconComp = SOURCE_ICON_MAP[src] || GlobeIcon;
               return (
                 <div key={src}>
                   <div className="flex items-center gap-2 mb-4">
-                    <span className="text-xl">{sourceIcons[src]}</span>
+                    <IconComp className="w-5 h-5 text-white/70" />
                     <h3 className="text-white text-lg font-bold">{srcInfo.label}</h3>
                     <span className="text-white/40 text-sm">({songs.length} results)</span>
                   </div>

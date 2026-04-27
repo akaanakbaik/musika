@@ -55,7 +55,7 @@ export default function Playlists() {
     if (error) {
       toast({ title: "Failed to create playlist", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Playlist created! 🎵", description: newName });
+      toast({ title: "Playlist created!", description: newName });
       setNewName(""); setNewDesc(""); setShowCreate(false);
       loadPlaylists();
     }

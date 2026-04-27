@@ -5,16 +5,23 @@ import { getRecommendations, type Song } from "@/lib/musicApi";
 import { useAuth } from "@/lib/AuthContext";
 import { RefreshCw, Music, TrendingUp, Sparkles } from "lucide-react";
 import { Link } from "wouter";
+import { HeartFilledIcon, ClockIcon, LibraryIcon, AIBotIcon } from "@/components/SourceIcon";
 
 const LOGO = "https://raw.githubusercontent.com/akaanakbaik/my-cdn/main/musika/logonobglatar121212.png";
 
-const greetings = ["Good morning", "Good afternoon", "Good evening"];
 function getGreeting() {
   const h = new Date().getHours();
-  if (h < 12) return greetings[0];
-  if (h < 18) return greetings[1];
-  return greetings[2];
+  if (h < 12) return "Good morning";
+  if (h < 18) return "Good afternoon";
+  return "Good evening";
 }
+
+const quickActions = [
+  { label: "Liked Songs", Icon: HeartFilledIcon, href: "/favorites", color: "from-purple-600 to-purple-900" },
+  { label: "History", Icon: ClockIcon, href: "/history", color: "from-blue-600 to-blue-900" },
+  { label: "My Playlists", Icon: LibraryIcon, href: "/playlists", color: "from-orange-600 to-orange-900" },
+  { label: "Musika AI", Icon: AIBotIcon, href: "/ai", color: "from-emerald-600 to-emerald-900" },
+];
 
 export default function Home() {
   const { playSong } = usePlayer();
@@ -51,8 +58,8 @@ export default function Home() {
           <div className="flex items-center gap-3 mb-1">
             <img src={LOGO} alt="musika" className="h-7 object-contain md:hidden" />
           </div>
-          <h1 className="text-white text-2xl md:text-3xl font-bold">
-            {user ? `${getGreeting()}, ${displayName} 👋` : "Welcome to Musika 🎵"}
+          <h1 className="text-white text-2xl md:text-3xl font-bold flex items-center gap-2">
+            {user ? `${getGreeting()}, ${displayName}` : "Welcome to Musika"}
           </h1>
           <p className="text-white/50 text-sm mt-1">Discover new music every day</p>
         </div>
@@ -68,18 +75,13 @@ export default function Home() {
 
       {/* Quick actions */}
       <div className="grid grid-cols-2 gap-3 mb-8">
-        {[
-          { label: "Liked Songs", icon: "♥", href: "/favorites", color: "from-purple-600 to-purple-900" },
-          { label: "History", icon: "🕐", href: "/history", color: "from-blue-600 to-blue-900" },
-          { label: "My Playlists", icon: "📚", href: "/playlists", color: "from-orange-600 to-orange-900" },
-          { label: "Musika AI", icon: "🤖", href: "/ai", color: "from-emerald-600 to-emerald-900" },
-        ].map(({ label, icon, href, color }) => (
+        {quickActions.map(({ label, Icon, href, color }) => (
           <Link
             key={href}
             href={href}
             className={`flex items-center gap-3 bg-gradient-to-r ${color} rounded-lg p-3 md:p-4 cursor-pointer hover:brightness-110 transition-all`}
           >
-            <span className="text-2xl">{icon}</span>
+            <Icon className="w-6 h-6 text-white flex-shrink-0" />
             <span className="text-white font-semibold text-sm md:text-base">{label}</span>
           </Link>
         ))}

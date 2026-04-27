@@ -1,73 +1,110 @@
-const CACHE_NAME = "musika-v1";
+const CACHE_VERSION = "musika-v3";
+const STATIC_CACHE = `${CACHE_VERSION}-static`;
+const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
+
 const STATIC_ASSETS = [
   "/",
   "/index.html",
   "/manifest.json"
 ];
 
+const NEVER_CACHE = [
+  "/api/",
+  "supabase.co",
+  "api-junzz.web.id",
+  "kelvdra.my.id",
+  "nexray.web.id",
+  "cuki.biz.id",
+  "zenzxz.my.id"
+];
+
+function shouldSkipCache(url) {
+  return NEVER_CACHE.some(pattern => url.includes(pattern));
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
+    caches.open(STATIC_CACHE).then((cache) => {
       return cache.addAll(STATIC_ASSETS).catch(() => {});
-    })
+    }).then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
-      );
-    })
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys
+          .filter(k => k !== STATIC_CACHE && k !== DYNAMIC_CACHE)
+          .map(k => caches.delete(k))
+      )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (event) => {
   const { request } = event;
-  const url = new URL(request.url);
+  const url = request.url;
 
-  // Don't cache API calls
-  if (url.pathname.startsWith("/api/")) {
-    return event.respondWith(fetch(request));
-  }
+  if (request.method !== "GET") return;
+  if (shouldSkipCache(url)) return;
+  if (url.startsWith("chrome-extension:") || url.startsWith("data:")) return;
 
-  // Network first for navigation
   if (request.mode === "navigate") {
     event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          return response;
-        })
-        .catch(() => caches.match("/") || caches.match("/index.html"))
+      fetch(request).then((res) => {
+        const clone = res.clone();
+        caches.open(STATIC_CACHE).then(cache => cache.put(request, clone));
+        return res;
+      }).catch(async () => {
+        const cached = await caches.match("/") || await caches.match("/index.html");
+        return cached || new Response("<html><body><h1>Offline</h1><p>Please check your connection.</p></body></html>", {
+          headers: { "Content-Type": "text/html" }
+        });
+      })
     );
     return;
   }
 
-  // Cache first for static assets
+  if (url.includes("/assets/") || url.endsWith(".woff2") || url.endsWith(".woff") || url.endsWith(".ttf")) {
+    event.respondWith(
+      caches.match(request).then(cached => {
+        if (cached) return cached;
+        return fetch(request).then(res => {
+          if (res.ok) {
+            caches.open(STATIC_CACHE).then(cache => cache.put(request, res.clone()));
+          }
+          return res;
+        });
+      })
+    );
+    return;
+  }
+
+  if (url.includes("fonts.googleapis.com") || url.includes("fonts.gstatic.com")) {
+    event.respondWith(
+      caches.match(request).then(cached => {
+        if (cached) return cached;
+        return fetch(request).then(res => {
+          if (res.ok) caches.open(DYNAMIC_CACHE).then(c => c.put(request, res.clone()));
+          return res;
+        }).catch(() => cached || new Response("", { status: 408 }));
+      })
+    );
+    return;
+  }
+
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request).then((response) => {
-        if (response.ok && !url.pathname.startsWith("/api")) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-        }
-        return response;
-      }).catch(() => cached || new Response("Offline", { status: 503 }));
-    })
+    fetch(request).catch(() => caches.match(request))
   );
 });
 
-// Media session support
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SKIP_WAITING") {
     self.skipWaiting();
+  }
+  if (event.data?.type === "CACHE_URLS") {
+    const urls = event.data.urls || [];
+    caches.open(DYNAMIC_CACHE).then(cache => cache.addAll(urls).catch(() => {}));
   }
 });

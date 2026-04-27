@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Bot, Send, Loader2, Trash2, Music, Sparkles } from "lucide-react";
+import { Bot, Send, Loader2, Trash2, Music, Zap, HeartPulse, BookOpen } from "lucide-react";
 import { aiChat } from "@/lib/musicApi";
 
 interface Message {
@@ -8,14 +8,12 @@ interface Message {
   timestamp: Date;
 }
 
-const LOGO = "https://raw.githubusercontent.com/akaanakbaik/my-cdn/main/musika/logonobglatar121212.png";
-
 const SUGGESTIONS = [
-  "Recommend me songs for working out 💪",
+  "Recommend songs for working out",
   "What are the top songs in 2024?",
-  "Suggest a romantic playlist 🌹",
+  "Suggest a romantic playlist",
   "Tell me about BTS",
-  "Songs to listen to while studying 📚",
+  "Songs to listen to while studying",
   "What is Lo-fi music?",
 ];
 
@@ -23,7 +21,7 @@ export default function AIChat() {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Hi! I'm **Musika AI** 🎵 — your personal music companion. Ask me anything about music — recommendations, artists, genres, or how to use Musika features. How can I help you today?",
+      content: "Hi! I'm **Musika AI** — your personal music companion. Ask me anything about music — recommendations, artists, genres, or how to use Musika features. How can I help you today?",
       timestamp: new Date()
     }
   ]);
@@ -40,7 +38,7 @@ export default function AIChat() {
     const text = (msg || input).trim();
     if (!text || loading) return;
     setInput("");
-    
+
     const userMsg: Message = { role: "user", content: text, timestamp: new Date() };
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
@@ -48,10 +46,10 @@ export default function AIChat() {
     try {
       const reply = await aiChat(text);
       setMessages(prev => [...prev, { role: "assistant", content: reply, timestamp: new Date() }]);
-    } catch (e: any) {
+    } catch {
       setMessages(prev => [...prev, {
         role: "assistant",
-        content: "Sorry, I couldn't process that. Please try again! 🙏",
+        content: "Sorry, I couldn't process that. Please try again.",
         timestamp: new Date()
       }]);
     } finally {
@@ -62,7 +60,7 @@ export default function AIChat() {
   function clearChat() {
     setMessages([{
       role: "assistant",
-      content: "Chat cleared! What would you like to know about music? 🎵",
+      content: "Chat cleared! What would you like to know about music?",
       timestamp: new Date()
     }]);
   }
@@ -87,13 +85,17 @@ export default function AIChat() {
           </div>
           <div>
             <h1 className="text-white font-bold">Musika AI</h1>
-            <p className="text-[#1DB954] text-xs flex items-center gap-1">
+            <p className="text-[#1DB954] text-xs flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 bg-[#1DB954] rounded-full inline-block animate-pulse" />
-              Online • Powered by GPT-5
+              Online · Powered by GPT-5
             </p>
           </div>
         </div>
-        <button onClick={clearChat} className="text-white/50 hover:text-white p-2 rounded-lg hover:bg-white/5 transition-colors" title="Clear chat">
+        <button
+          onClick={clearChat}
+          className="text-white/50 hover:text-white p-2 rounded-lg hover:bg-white/5 transition-colors"
+          title="Clear chat"
+        >
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
@@ -145,12 +147,12 @@ export default function AIChat() {
       {/* Suggestions */}
       {messages.length <= 1 && (
         <div className="px-4 md:px-6 pb-3">
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+          <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
             {SUGGESTIONS.map((s, i) => (
               <button
                 key={i}
                 onClick={() => sendMessage(s)}
-                className="flex-shrink-0 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-xs px-3 py-2 rounded-full transition-colors"
+                className="flex-shrink-0 bg-white/5 hover:bg-white/10 border border-white/10 text-white/70 hover:text-white text-xs px-3 py-2 rounded-full transition-colors whitespace-nowrap"
               >
                 {s}
               </button>
@@ -167,7 +169,7 @@ export default function AIChat() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
-            placeholder="Ask me anything about music…"
+            placeholder="Ask me anything about music..."
             className="flex-1 bg-white/5 border border-white/10 rounded-full px-5 py-3 text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-[#1DB954] transition-colors"
             disabled={loading}
           />
