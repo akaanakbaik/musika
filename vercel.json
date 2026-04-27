@@ -1,0 +1,7 @@
+{
+  "buildCommand": "pnpm --filter @workspace/music-player run build",
+  "outputDirectory": "artifacts/music-player/dist/public",
+  "installCommand": "pnpm install",
+  "framework": null,
+  "rewrites": []
+}
