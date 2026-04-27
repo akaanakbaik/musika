@@ -131,10 +131,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) {
       const msg = error.message.toLowerCase();
       if (msg.includes("invalid") || msg.includes("credentials") || msg.includes("password")) {
-        return { error: "Wrong email or password" };
+        return { error: "Email atau password salah" };
       }
       if (msg.includes("not confirmed") || msg.includes("email")) {
-        return { error: "Email not verified. Please register again to receive a new code." };
+        return { error: "Email belum diverifikasi. Daftar ulang untuk mendapatkan kode baru." };
       }
       return { error: error.message };
     }
@@ -163,22 +163,93 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   }
 
-  async function uploadAvatar(file: File) {
-    if (!user) return { url: null, error: "Not authenticated" };
-    const formData = new FormData();
-    formData.append("file", file);
+  async function uploadAvatar(file: File): Promise<{ url: string | null; error: string | null }> {
+    if (!user) return { url: null, error: "Belum masuk akun" };
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      return { url: null, error: "File harus berupa gambar (JPG, PNG, WebP)" };
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      return { url: null, error: "Ukuran gambar maksimal 5MB" };
+    }
+
+    // Strategy 1: Supabase Storage (no backend needed, most reliable)
     try {
-      const res = await fetch(API("/api/upload"), {
-        method: "POST",
-        headers: { "x-expire": "4w" },
-        body: formData
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
-      await updateProfile({ avatar_url: data.url });
-      return { url: data.url, error: null };
-    } catch (e: any) {
-      return { url: null, error: e.message };
+      // Try to ensure bucket exists (ignore error if already exists)
+      await supabase.storage.createBucket("avatars", { public: true, fileSizeLimit: 5242880 }).catch(() => {});
+
+      const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const validExts = ["jpg", "jpeg", "png", "webp", "gif"];
+      const finalExt = validExts.includes(ext) ? ext : "jpg";
+      const filename = `${user.id}/avatar-${Date.now()}.${finalExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(filename, file, {
+          contentType: file.type,
+          upsert: true,
+          cacheControl: "3600"
+        });
+
+      if (!uploadError) {
+        const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(filename);
+        const publicUrl = urlData.publicUrl;
+        if (publicUrl) {
+          await updateProfile({ avatar_url: publicUrl });
+          return { url: publicUrl, error: null };
+        }
+      }
+
+      // If bucket doesn't exist, try creating it (only works with service role, skip to next strategy)
+      if (uploadError?.message?.includes("bucket") || uploadError?.message?.includes("not found")) {
+        throw new Error("bucket_not_found");
+      }
+
+      throw new Error(uploadError?.message || "Upload ke Supabase gagal");
+    } catch (supabaseErr: any) {
+      console.warn("[Avatar] Supabase Storage failed:", supabaseErr.message);
+
+      // Strategy 2: Backend CDN upload via Express /api/upload
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 30000);
+
+        const res = await fetch(API("/api/upload"), {
+          method: "POST",
+          headers: { "x-expire": "4w" },
+          body: formData,
+          signal: controller.signal
+        });
+        clearTimeout(timer);
+
+        if (!res.ok) {
+          const errText = await res.text().catch(() => "");
+          throw new Error(`Server error ${res.status}: ${errText.slice(0, 100)}`);
+        }
+
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || "Upload gagal");
+
+        await updateProfile({ avatar_url: data.url });
+        return { url: data.url, error: null };
+      } catch (cdnErr: any) {
+        console.warn("[Avatar] CDN upload failed:", cdnErr.message);
+
+        if (cdnErr.name === "AbortError") {
+          return { url: null, error: "Waktu habis. Coba gambar yang lebih kecil." };
+        }
+
+        return {
+          url: null,
+          error: `Upload gagal: ${cdnErr.message || "Kesalahan tidak diketahui"}. Coba gambar JPG/PNG < 2MB.`
+        };
+      }
     }
   }
 
