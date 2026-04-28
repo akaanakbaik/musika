@@ -35,9 +35,14 @@ export function SongCard({ song, queue, variant = "default", index }: SongCardPr
 
   const handlePlay = () => {
     if (isActive && !isResolving) {
+      // Same song, not loading → toggle play/pause
       if (isPlaying) pause();
       else resume();
-    } else if (!isResolving) {
+    } else if (isActive && isResolving) {
+      // Same song, still loading → do nothing (already loading this song)
+      return;
+    } else {
+      // Different song → start playing immediately (cancels any current load)
       playSong(song, queue || [song]);
     }
   };

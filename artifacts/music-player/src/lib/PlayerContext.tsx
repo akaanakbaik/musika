@@ -35,14 +35,11 @@ interface PlayerContextType {
 
 const PlayerContext = createContext<PlayerContextType | null>(null);
 
-// BASE is the Vite base path (e.g. "" in production or "/prefix" in sub-path)
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 
-// Cache resolved play URLs so re-plays are instant
 interface PlayUrlEntry { playUrl: string; expires: number; }
 const playUrlCache = new Map<string, PlayUrlEntry>();
 
-// Source-specific loading messages shown to user
 const RESOLVING_MESSAGES: Record<string, string> = {
   youtube:    "Memuat dari YouTube…",
   spotify:    "Memuat dari Spotify…",
@@ -51,11 +48,12 @@ const RESOLVING_MESSAGES: Record<string, string> = {
   default:    "Memuat lagu…"
 };
 
-export function PlayerProvider({ children }: { children: React.ReactNode }) {
-  // ─── Audio element ───────────────────────────────────────────────────────────
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+// Tiny silent WAV — used to pre-warm the audio element synchronously
+// so browser preserves user-activation context across async URL resolution
+const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
 
-  // ─── State ───────────────────────────────────────────────────────────────────
+export function PlayerProvider({ children }: { children: React.ReactNode }) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [queue, setQueue] = useState<Song[]>([]);
   const [queueIndex, setQueueIndex] = useState(0);
@@ -70,36 +68,38 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<"none" | "one" | "all">("none");
 
-  // ─── Refs for closures ───────────────────────────────────────────────────────
-  const resolveRef = useRef<string | null>(null); // tracks which song is being resolved
+  // Track which song is currently being resolved so we can cancel stale loads
+  const resolveIdRef = useRef<string | null>(null);
   const queueRef = useRef(queue);
   const queueIndexRef = useRef(queueIndex);
   const repeatRef = useRef(repeat);
+  const volumeRef = useRef(0.8);
 
   useEffect(() => { queueRef.current = queue; }, [queue]);
   useEffect(() => { queueIndexRef.current = queueIndex; }, [queueIndex]);
   useEffect(() => { repeatRef.current = repeat; }, [repeat]);
+  useEffect(() => { volumeRef.current = volume; }, [volume]);
 
   // ─── Audio element setup ─────────────────────────────────────────────────────
   useEffect(() => {
     const audio = new Audio();
     audio.volume = volume;
     audio.preload = "auto";
-    // ✅ DO NOT set crossOrigin="anonymous" — this causes CORS blocks with external CDNs
-    // (kelvdra returns Access-Control-Allow-Origin: null which browser rejects in CORS mode)
+    // NO crossOrigin attribute — removing this was the key CORS fix.
+    // Without crossOrigin="anonymous", browser does NOT enforce CORS on audio,
+    // so direct CDN URLs and stream proxies both work fine.
     audioRef.current = audio;
 
     const onTimeUpdate = () => setProgress(audio.currentTime);
     const onDuration   = () => { if (!isNaN(audio.duration) && isFinite(audio.duration)) setDuration(audio.duration); };
     const onWaiting    = () => setIsBuffering(true);
-    const onCanPlay    = () => { setIsBuffering(false); };
+    const onCanPlay    = () => setIsBuffering(false);
     const onPlay       = () => { setIsPlaying(true); setIsBuffering(false); };
     const onPause      = () => setIsPlaying(false);
     const onError      = (e: Event) => {
       const err = (e.target as HTMLAudioElement).error;
-      console.warn("[Audio] Playback error:", err?.code, err?.message);
+      if (err) console.warn("[Audio] error:", err.code, err.message);
       setIsBuffering(false);
-      setIsResolving(false);
     };
     const onEnded = () => {
       const r = repeatRef.current;
@@ -154,11 +154,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           { src: currentSong.thumbnail, sizes: "256x256", type: "image/jpeg" },
         ]
       });
-      navigator.mediaSession.setActionHandler("play",           () => resume());
-      navigator.mediaSession.setActionHandler("pause",          () => pause());
-      navigator.mediaSession.setActionHandler("nexttrack",      () => next());
-      navigator.mediaSession.setActionHandler("previoustrack",  () => prev());
-      navigator.mediaSession.setActionHandler("seekto",         (d) => { if (d.seekTime !== undefined) seek(d.seekTime); });
+      navigator.mediaSession.setActionHandler("play",          () => resume());
+      navigator.mediaSession.setActionHandler("pause",         () => pause());
+      navigator.mediaSession.setActionHandler("nexttrack",     () => next());
+      navigator.mediaSession.setActionHandler("previoustrack", () => prev());
+      navigator.mediaSession.setActionHandler("seekto",        (d) => { if (d.seekTime !== undefined) seek(d.seekTime); });
     } catch {}
   }, [currentSong]);
 
@@ -182,94 +182,84 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // ─── Resolve playable URL ────────────────────────────────────────────────────
   /**
-   * Multi-strategy URL resolution for reliable audio playback.
+   * Gets a playable audio URL for a song.
    *
-   * Strategy 1 (primary): /api/music/prepare  [CDN-first pipeline]
-   *   - Gets raw URL, triggers CDN upload in bg, returns stream_url immediately
-   *   - Returns cdn_url on subsequent plays (kabox CDN, best for seeking)
-   *   - Available after backend deployment
+   * Strategy 1: /api/music/prepare — CDN-first pipeline (kabox CDN or stream proxy).
+   *   Available once the Replit backend is deployed.
    *
-   * Strategy 2 (fallback): /api/music/download [always available]
-   *   - Gets raw download URL from source API
-   *   - Wraps it in /api/music/stream proxy (same-origin, no CORS issue)
-   *   - Works with current production API
+   * Strategy 2: /api/music/download — gets direct CDN URL from source API.
+   *   The direct URL (e.g. kelvdra) is played WITHOUT going through stream proxy,
+   *   since the audio element has no crossOrigin attr and CORS is not enforced.
+   *   This is faster (no double-hop) and works reliably.
    *
-   * KEY: Audio element has NO crossOrigin attribute set.
-   * Without crossOrigin="anonymous", browser does NOT enforce CORS on audio.
-   * The stream proxy (same-origin) and kabox CDN (CORS-enabled) both work fine.
+   * CORS note: Audio elements without crossOrigin play from any URL without CORS checks.
    */
-  async function resolvePlayUrl(song: Song): Promise<string> {
-    // 1. Check local cache (avoids re-resolving same song)
+  async function resolvePlayUrl(song: Song, signal: AbortSignal): Promise<string> {
     const cacheEntry = playUrlCache.get(song.videoId);
     if (cacheEntry && Date.now() < cacheEntry.expires) {
       return cacheEntry.playUrl;
     }
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 28000); // 28s overall timeout
-
+    // ── Strategy 1: /api/music/prepare ──────────────────────────────────────
     try {
-      // ── Strategy 1: /api/music/prepare (CDN pipeline, new endpoint) ──────────
       const prepareRes = await fetch(
         `${BASE}/api/music/prepare?url=${encodeURIComponent(song.url)}&source=${song.source}&videoId=${encodeURIComponent(song.videoId)}`,
-        { signal: controller.signal }
+        { signal }
       );
-
       if (prepareRes.ok) {
-        const prepareData = await prepareRes.json();
-        if (prepareData.success && (prepareData.stream_url || prepareData.cdn_url)) {
-          // Prefer CDN URL (direct, best seeking); fallback to stream proxy
-          const playUrl = prepareData.cdn_url || `${BASE}${prepareData.stream_url}`;
-          cachePlayUrl(song.videoId, playUrl);
-          clearTimeout(timer);
+        const data = await prepareRes.json();
+        if (data.success && (data.stream_url || data.cdn_url)) {
+          const playUrl = data.cdn_url
+            ? data.cdn_url
+            : `${BASE}${data.stream_url}`;
+          storeCache(song.videoId, playUrl);
           return playUrl;
         }
       }
-      // If prepare returns 404 (endpoint not deployed yet), fall through to strategy 2
     } catch (err: any) {
-      if (err.name === "AbortError") { clearTimeout(timer); throw err; }
-      // Network or parse error — fall through to strategy 2
-      console.warn("[Player] /prepare failed, trying /download:", err.message);
+      if (err.name === "AbortError") throw err;
+      // Fall through to strategy 2
     }
 
-    // ── Strategy 2: /api/music/download + stream proxy (always available) ─────
+    // ── Strategy 2: /api/music/download → direct CDN URL (no proxy) ─────────
     const downloadRes = await fetch(
       `${BASE}/api/music/download?url=${encodeURIComponent(song.url)}&source=${song.source}`,
-      { signal: controller.signal }
+      { signal }
     );
-    clearTimeout(timer);
 
     if (!downloadRes.ok) {
-      throw new Error(`Download gagal: HTTP ${downloadRes.status}`);
+      throw new Error(`Gagal mengunduh: HTTP ${downloadRes.status}`);
     }
 
-    const downloadData = await downloadRes.json();
-    if (!downloadData.success || !downloadData.download_url) {
-      throw new Error(downloadData.error || "Tidak ada URL audio yang tersedia");
+    const data = await downloadRes.json();
+    if (!data.success || !data.download_url) {
+      throw new Error(data.error || "Tidak ada URL audio");
     }
 
-    // Wrap raw download URL in stream proxy
-    // Stream proxy: same-origin, adds CORS headers, handles Range requests
-    // No crossOrigin on audio element → no CORS preflight → works perfectly
-    const playUrl = `${BASE}/api/music/stream?url=${encodeURIComponent(downloadData.download_url)}`;
-    cachePlayUrl(song.videoId, playUrl);
+    // Play directly from CDN URL (no proxy needed — no crossOrigin = no CORS enforcement)
+    const playUrl = data.download_url;
+    storeCache(song.videoId, playUrl);
     return playUrl;
   }
 
-  function cachePlayUrl(videoId: string, playUrl: string) {
+  function storeCache(videoId: string, playUrl: string) {
     if (playUrlCache.size > 50) {
-      const oldKey = playUrlCache.keys().next().value;
-      if (oldKey) playUrlCache.delete(oldKey);
+      const k = playUrlCache.keys().next().value;
+      if (k) playUrlCache.delete(k);
     }
     playUrlCache.set(videoId, { playUrl, expires: Date.now() + 4 * 60 * 60 * 1000 });
   }
 
-  // ─── Internal play function ──────────────────────────────────────────────────
+  // ─── Internal play ───────────────────────────────────────────────────────────
   async function internalPlay(song: Song) {
     const audio = audioRef.current;
     if (!audio) return;
 
-    // Update UI immediately — show song info + loading state
+    // Cancel any in-progress resolution for a different song
+    const songKey = song.videoId;
+    resolveIdRef.current = songKey;
+
+    // Update UI immediately — show info + loading state
     setCurrentSong(song);
     setIsResolving(true);
     setResolvingStep(RESOLVING_MESSAGES[song.source] || RESOLVING_MESSAGES.default);
@@ -282,28 +272,49 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     audio.pause();
     audio.src = "";
 
+    // ── PRE-WARM: Preserve user activation across async gap ──────────────────
+    // Browsers expire "user activation" after 5s. Since URL resolution takes 3-8s,
+    // we call audio.play() SYNCHRONOUSLY with a tiny silent audio to "unlock" audio
+    // for this session. Future audio.play() calls won't need a new gesture.
+    try {
+      audio.src = SILENT_WAV;
+      audio.volume = 0;
+      await audio.play();
+      audio.pause();
+      audio.src = "";
+      audio.volume = volumeRef.current;
+    } catch {
+      audio.volume = volumeRef.current;
+    }
+
     recordHistory(song);
 
-    const songKey = song.videoId;
-    resolveRef.current = songKey;
+    // ── Resolve URL ──────────────────────────────────────────────────────────
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30000);
 
     try {
-      // Step A: Get playable URL (2–8 seconds typically)
       setResolvingStep(RESOLVING_MESSAGES[song.source] || RESOLVING_MESSAGES.default);
-      const playUrl = await resolvePlayUrl(song);
+      const playUrl = await resolvePlayUrl(song, controller.signal);
+      clearTimeout(timer);
 
-      // If song changed while resolving, abort
-      if (resolveRef.current !== songKey) return;
+      // Stale check — user may have clicked another song while we were resolving
+      if (resolveIdRef.current !== songKey) return;
 
-      setResolvingStep("Mempersiapkan audio…");
+      setResolvingStep("Memulai putar…");
 
-      // Step B: Set audio source — no crossOrigin attribute, so browser won't
-      // enforce CORS preflight. Works with both same-origin proxy URLs and CDN URLs.
+      // ── Play ─────────────────────────────────────────────────────────────
       audio.src = playUrl;
+      audio.volume = volumeRef.current;
       audio.load();
 
-      // Step C: Play — triggered right after user interaction, so browser allows it
       await audio.play();
+
+      // Guard again — song may have changed during load()
+      if (resolveIdRef.current !== songKey) {
+        audio.pause();
+        return;
+      }
 
       setIsPlaying(true);
       setIsResolving(false);
@@ -314,29 +325,35 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       }
 
     } catch (err: any) {
-      if (resolveRef.current !== songKey) return; // Song changed, ignore error
+      clearTimeout(timer);
+      if (resolveIdRef.current !== songKey) return;
 
       console.error("[Player] Playback failed:", err.name, err.message);
 
-      // Clear cache so next attempt re-fetches
       playUrlCache.delete(song.videoId);
       setIsResolving(false);
       setResolvingStep("");
       setIsBuffering(false);
       setIsPlaying(false);
 
-      // User-facing error
-      const isAbort   = err.name === "AbortError";
-      const isNotAllow = err.name === "NotAllowedError";
-      toast({
-        title: isAbort     ? "Waktu habis — coba lagi"
-             : isNotAllow  ? "Putar gagal — klik Play"
-             : "Gagal memutar lagu",
-        description: isAbort    ? `Koneksi lambat saat memuat ${song.title}`
-                   : isNotAllow ? "Browser memblokir autoplay. Tekan tombol Play."
-                   : err.message || "Terjadi kesalahan. Coba lagi.",
-        variant: "destructive"
-      });
+      if (err.name === "AbortError") {
+        toast({
+          title: "Waktu habis",
+          description: `Koneksi lambat. Coba lagi.`,
+          variant: "destructive"
+        });
+      } else if (err.name === "NotAllowedError") {
+        toast({
+          title: "Tekan tombol Play",
+          description: "Browser memblokir autoplay. Tekan ▶ untuk memutar.",
+        });
+      } else {
+        toast({
+          title: "Gagal memutar lagu",
+          description: err.message || "Terjadi kesalahan. Coba lagi.",
+          variant: "destructive"
+        });
+      }
     }
   }
 
@@ -409,6 +426,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   function setVolume(v: number) {
     const clamped = Math.max(0, Math.min(1, v));
     setVolumeState(clamped);
+    volumeRef.current = clamped;
     if (audioRef.current) audioRef.current.volume = clamped;
   }
 
@@ -446,7 +464,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }
 
   function clearQueue() { setQueue([]); queueRef.current = []; }
-
   function isFavorite(videoId: string) { return favorites.has(videoId); }
 
   async function toggleFavorite(song: Song) {
