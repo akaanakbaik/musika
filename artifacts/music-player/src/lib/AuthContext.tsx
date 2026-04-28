@@ -5,12 +5,13 @@ import type { User, Session } from "@supabase/supabase-js";
 const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") || "";
 const API = (path: string) => `${BASE}${path}`;
 
-interface UserProfile {
+export interface UserProfile {
   id: string;
   username: string;
   bio: string;
   avatar_url: string;
   created_at: string;
+  musika_id?: string;
 }
 
 interface AuthContextType {
@@ -171,9 +172,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { url: null, error: "File harus berupa gambar (JPG, PNG, WebP)" };
     }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      return { url: null, error: "Ukuran gambar maksimal 5MB" };
+    if (file.size > 10 * 1024 * 1024) {
+      return { url: null, error: "Ukuran gambar maksimal 10MB" };
     }
 
     // Strategy 1: Supabase Storage (no backend needed, most reliable)
@@ -196,7 +196,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (!uploadError) {
         const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(filename);
-        const publicUrl = urlData.publicUrl;
+        // Add cache-buster so browser reloads fresh avatar after update
+        const publicUrl = urlData.publicUrl ? `${urlData.publicUrl}?t=${Date.now()}` : null;
         if (publicUrl) {
           await updateProfile({ avatar_url: publicUrl });
           return { url: publicUrl, error: null };

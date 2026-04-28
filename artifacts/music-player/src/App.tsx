@@ -20,6 +20,7 @@ import Profile from "@/pages/Profile";
 import DownloadApp from "@/pages/DownloadApp";
 import AuthPage from "@/components/auth/AuthPage";
 import NotFound from "@/pages/not-found";
+import PlaylistDetail from "@/pages/PlaylistDetail";
 import { useEffect, useState } from "react";
 
 const queryClient = new QueryClient({
@@ -86,6 +87,7 @@ function AppRoutes() {
           <Route path="/favorites" component={Favorites} />
           <Route path="/history" component={History} />
           <Route path="/playlists" component={Playlists} />
+          <Route path="/playlist/:id" component={PlaylistDetail} />
           <Route path="/profile" component={Profile} />
           <Route path="/download-app" component={DownloadApp} />
           <Route path="/download" component={DownloadApp} />
