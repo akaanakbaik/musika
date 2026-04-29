@@ -8,8 +8,15 @@ const rawPort = process.env.PORT || "3000";
 const port = Number(rawPort);
 const basePath = process.env.BASE_PATH || "/";
 
+// Use relative base ("./" ) when basePath is the root ("/").
+// This makes Capacitor Android WebView work (no blank screen due to absolute /assets/
+// paths failing on capacitor://localhost) while remaining fully compatible with
+// Vercel and PWA, because browsers resolve "./assets/foo.js" relative to the
+// page origin — identical to "/assets/foo.js" when the page is at root.
+const base = basePath === "/" ? "./" : basePath;
+
 export default defineConfig({
-  base: basePath,
+  base,
   plugins: [
     react(),
     tailwindcss(),

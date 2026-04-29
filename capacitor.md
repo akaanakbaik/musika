@@ -4,6 +4,96 @@ Dokumentasi ini menjelaskan cara mengonversi Musika PWA menjadi aplikasi native 
 
 ---
 
+## ⚠️ Penting: Layar Hitam di Capacitor (Asset Path Absolut)
+
+### Penyebab
+
+Saat APK Capacitor dibuka di Android, layar menjadi hitam/kosong karena React tidak berjalan. Penyebabnya adalah **asset path absolut** di `dist/public/index.html`:
+
+```html
+<!-- ❌ Path absolut — GAGAL di Capacitor -->
+<script src="/assets/index-xxxx.js"></script>
+<link href="/assets/index-xxxx.css">
+```
+
+Capacitor menjalankan web app dari `capacitor://localhost` (bukan server HTTP biasa). Path seperti `/assets/foo.js` tidak bisa diresolvisi dari `capacitor://localhost/assets/foo.js` secara benar di beberapa konfigurasi WebView Android, sehingga asset gagal dimuat dan React tidak pernah berjalan.
+
+### Solusi: `base: './'` di Vite
+
+Di `artifacts/music-player/vite.config.ts`, gunakan path relatif:
+
+```typescript
+// Sebelum (bermasalah untuk Capacitor):
+const base = basePath; // basePath = "/" → menghasilkan /assets/...
+
+// Sesudah (aman untuk Capacitor, Vercel, dan PWA):
+const base = basePath === "/" ? "./" : basePath;
+```
+
+Hasil build yang benar di `dist/public/index.html`:
+
+```html
+<!-- ✅ Path relatif — BENAR untuk Capacitor -->
+<script type="module" src="./assets/index-xxxx.js"></script>
+<link rel="stylesheet" href="./assets/index-xxxx.css">
+```
+
+### Cara verifikasi hasil build
+
+```bash
+cd artifacts/music-player
+pnpm run build
+
+# Cek path di index.html — HARUS ./assets/... bukan /assets/...
+grep -n "assets" dist/public/index.html
+```
+
+Output yang diharapkan:
+```
+34:    <script type="module" crossorigin src="./assets/index-CzXcdkkS.js"></script>
+35:    <link rel="stylesheet" crossorigin href="./assets/index-DjATdcbO.css">
+```
+
+### Mengapa aman untuk Vercel dan PWA?
+
+Browser meresolve `./assets/foo.js` relatif terhadap origin halaman. Jika halaman ada di `https://musika-one.vercel.app/`, maka:
+
+- `./assets/foo.js` → `https://musika-one.vercel.app/assets/foo.js` ✅
+- `/assets/foo.js` → `https://musika-one.vercel.app/assets/foo.js` ✅
+
+Hasilnya sama persis. Perubahan ini **tidak merusak** Vercel, PWA install dari Chrome, atau mode development Replit.
+
+### Perbedaan build berdasarkan target
+
+| Target | URL Dasar | Asset Path | Routing SPA |
+|--------|-----------|------------|-------------|
+| Vercel/Web | `https://musika-one.vercel.app/` | `./assets/...` ✅ | Vercel rewrites ke `index.html` |
+| PWA Install | sama seperti web | `./assets/...` ✅ | Service Worker |
+| Capacitor Android | `capacitor://localhost/` | `./assets/...` ✅ | Hash router atau history API |
+
+---
+
+### Build ulang untuk Capacitor setelah perubahan
+
+```bash
+cd artifacts/music-player
+
+# 1. Build Vite
+pnpm run build
+
+# 2. Salin hasil build ke Capacitor Android
+npx cap copy android
+
+# 3. Build APK debug
+cd android
+./gradlew assembleDebug
+
+# APK tersedia di:
+# android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+---
+
 ## Prasyarat
 
 - Node.js ≥ 18
