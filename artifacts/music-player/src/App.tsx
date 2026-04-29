@@ -10,6 +10,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { BottomNav } from "@/components/BottomNav";
 import { Player } from "@/components/Player";
 import { PWABanner } from "@/components/PWABanner";
+import { TopProgressBar } from "@/components/TopProgressBar";
 import Home from "@/pages/Home";
 import SearchResults from "@/pages/SearchResults";
 import Favorites from "@/pages/Favorites";
@@ -107,6 +108,7 @@ function AppShell() {
   return (
     <>
       {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
+      <TopProgressBar />
       <div className={`flex h-screen ${bgClass}`} style={{ overflow: "hidden" }}>
         {/* Desktop Sidebar */}
         <Sidebar />

@@ -61,14 +61,13 @@
 }
 
 :root {
-  /* Spotify Dark Theme by default */
-  --background: 0 0% 0%;
+  --background: 0 0% 7%;
   --foreground: 0 0% 100%;
   --border: 0 0% 15%;
   --input: 0 0% 15%;
   --ring: 142 71% 45%;
 
-  --card: 0 0% 7%;
+  --card: 0 0% 10%;
   --card-foreground: 0 0% 100%;
   --card-border: 0 0% 15%;
 
@@ -76,18 +75,18 @@
   --popover-foreground: 0 0% 100%;
   --popover-border: 0 0% 15%;
 
-  --primary: 142 71% 45%; /* Spotify Green #1DB954 */
+  --primary: 142 71% 45%;
   --primary-foreground: 0 0% 0%;
-  
+
   --secondary: 0 0% 15%;
   --secondary-foreground: 0 0% 100%;
-  
+
   --muted: 0 0% 15%;
   --muted-foreground: 0 0% 65%;
-  
+
   --accent: 0 0% 15%;
   --accent-foreground: 0 0% 100%;
-  
+
   --destructive: 0 62.8% 30.6%;
   --destructive-foreground: 0 0% 100%;
 
@@ -100,9 +99,10 @@
   --sidebar-accent-foreground: 0 0% 100%;
   --sidebar-ring: 142 71% 45%;
 
-  --app-font-sans: 'Inter', system-ui, sans-serif;
+  /* Plus Jakarta Sans — premium feel for music apps */
+  --app-font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --app-font-serif: Georgia, serif;
-  --app-font-mono: Menlo, monospace;
+  --app-font-mono: 'JetBrains Mono', Menlo, monospace;
   --radius: 0.5rem;
 
   --opaque-button-border-intensity: -8;
@@ -111,7 +111,6 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  /* Fallback borders */
   --sidebar-primary-border: hsl(var(--sidebar-primary));
   --sidebar-accent-border: hsl(var(--sidebar-accent));
   --primary-border: hsl(var(--primary));
@@ -121,172 +120,219 @@
   --destructive-border: hsl(var(--destructive));
 }
 
-.dark {
-  /* Same as root since we want dark mode by default */
-}
+.dark {}
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-
+  * { @apply border-border; }
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
   }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* ─── Custom scrollbar ────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.25); }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+
+/* ─── Top Progress Bar ─────────────────────────────────── */
+#musika-progress-bar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 2px;
+  z-index: 9999;
+  border-radius: 0 2px 2px 0;
+  transition: width 0.3s ease, opacity 0.4s ease;
+  box-shadow: 0 0 8px currentColor, 0 0 4px currentColor;
+  pointer-events: none;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+
+/* ─── Compact Toast (smaller, mobile-friendly) ─────────── */
+[data-radix-toast-viewport] {
+  --viewport-padding: 12px !important;
 }
-::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted));
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground));
+[data-radix-toast-announce-exclude] {
+  padding: 10px 14px !important;
+  border-radius: 12px !important;
+  font-size: 13px !important;
+  min-width: 0 !important;
+  max-width: 260px !important;
 }
 
 @layer utilities {
-  input[type="search"]::-webkit-search-cancel-button {
-    @apply hidden;
-  }
-  [contenteditable][data-placeholder]:empty::before {
-    content: attr(data-placeholder);
-    color: hsl(var(--muted-foreground));
-    pointer-events: none;
-  }
+  input[type="search"]::-webkit-search-cancel-button { @apply hidden; }
 
-  /* Scrolling text animation */
-  .animate-marquee {
-    animation: marquee 10s linear infinite;
-  }
+  /* ─── Marquee (scrolling title) ───────────────────────── */
+  .animate-marquee { animation: marquee 12s linear infinite; }
   @keyframes marquee {
     0% { transform: translateX(0%); }
     100% { transform: translateX(-100%); }
   }
 
+  /* ─── Hover elevation ─────────────────────────────────── */
   .hover-elevate:not(.no-default-hover-elevate)::after,
   .active-elevate:not(.no-default-active-elevate)::after {
-    content: "";
-    pointer-events: none;
-    position: absolute;
-    inset: 0px;
-    border-radius: inherit;
-    z-index: 999;
+    content: ""; pointer-events: none;
+    position: absolute; inset: 0;
+    border-radius: inherit; z-index: 999;
   }
   .hover-elevate:hover:not(.no-default-hover-elevate)::after {
     background-color: var(--elevate-1);
   }
 
-  /* ===== PWA Splash & Loading Animations ===== */
-
+  /* ─── Keyframes ───────────────────────────────────────── */
   @keyframes musicBar {
-    0%, 100% { height: 6px; opacity: 0.5; }
-    50% { height: 22px; opacity: 1; }
+    0%, 100% { height: 5px; opacity: 0.45; }
+    50% { height: 20px; opacity: 1; }
   }
-
   @keyframes splashBounce {
-    0% { transform: scale(0.7) translateY(20px); opacity: 0; }
-    60% { transform: scale(1.08) translateY(-4px); opacity: 1; }
-    80% { transform: scale(0.97) translateY(2px); }
+    0% { transform: scale(0.65) translateY(24px); opacity: 0; }
+    60% { transform: scale(1.06) translateY(-3px); opacity: 1; }
+    80% { transform: scale(0.98) translateY(1px); }
     100% { transform: scale(1) translateY(0); opacity: 1; }
   }
-
   @keyframes slideUpFade {
-    from { transform: translateY(16px); opacity: 0; }
+    from { transform: translateY(14px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
   }
-
+  @keyframes slideDownFade {
+    from { transform: translateY(-10px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
   @keyframes shimmer {
     0% { background-position: -400px 0; }
     100% { background-position: 400px 0; }
   }
-
   @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
+    from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: translateY(0); }
   }
-
+  @keyframes fadeInFast {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
   @keyframes scaleIn {
-    from { opacity: 0; transform: scale(0.96); }
+    from { opacity: 0; transform: scale(0.94); }
     to { opacity: 1; transform: scale(1); }
   }
-
   @keyframes ripple {
-    0% { transform: scale(0); opacity: 0.4; }
-    100% { transform: scale(4); opacity: 0; }
+    0% { transform: scale(0); opacity: 0.35; }
+    100% { transform: scale(4.5); opacity: 0; }
+  }
+  @keyframes pulse-ring {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(29,185,84,0.5); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(29,185,84,0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(29,185,84,0); }
+  }
+  @keyframes slideInRight {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes slideOutRight {
+    from { transform: translateX(0); opacity: 1; }
+    to { transform: translateX(100%); opacity: 0; }
+  }
+  @keyframes gradientShift {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
   }
 
-  .splash-bounce {
-    animation: splashBounce 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-  }
+  /* ─── Animation classes ───────────────────────────────── */
+  .splash-bounce { animation: splashBounce 0.75s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
+  .splash-slide-up { opacity: 0; animation: slideUpFade 0.45s ease forwards; }
+  .animate-fade-in { animation: fadeIn 0.3s ease forwards; }
+  .animate-fade-in-fast { animation: fadeInFast 0.2s ease forwards; }
+  .animate-scale-in { animation: scaleIn 0.22s ease forwards; }
+  .animate-slide-down { animation: slideDownFade 0.25s ease forwards; }
+  .animate-slide-in-right { animation: slideInRight 0.28s cubic-bezier(0.4,0,0.2,1) forwards; }
+  .animate-pulse-ring { animation: pulse-ring 1.5s ease-out infinite; }
 
-  .splash-slide-up {
-    opacity: 0;
-    animation: slideUpFade 0.5s ease forwards;
-  }
-
-  .animate-fade-in {
-    animation: fadeIn 0.35s ease forwards;
-  }
-
-  .animate-scale-in {
-    animation: scaleIn 0.25s ease forwards;
-  }
-
-  /* Skeleton shimmer */
+  /* ─── Skeleton shimmer ────────────────────────────────── */
   .skeleton {
-    background: linear-gradient(90deg, #1a1a1a 25%, #222 50%, #1a1a1a 75%);
+    background: linear-gradient(90deg, #1a1a1a 25%, #232323 50%, #1a1a1a 75%);
     background-size: 400px 100%;
-    animation: shimmer 1.4s ease infinite;
+    animation: shimmer 1.5s ease infinite;
     border-radius: 6px;
   }
-
-  /* Interactive button press */
-  .btn-press {
-    transition: transform 0.1s ease, opacity 0.1s ease;
-  }
-  .btn-press:active {
-    transform: scale(0.96);
-    opacity: 0.85;
+  .skeleton-light {
+    background: linear-gradient(90deg, #e8e8e8 25%, #f0f0f0 50%, #e8e8e8 75%);
+    background-size: 400px 100%;
+    animation: shimmer 1.5s ease infinite;
   }
 
-  /* Ripple effect container */
-  .ripple-container {
-    position: relative;
-    overflow: hidden;
-  }
+  /* ─── Interactive press ────────────────────────────────── */
+  .btn-press { transition: transform 0.1s ease, opacity 0.1s ease; }
+  .btn-press:active { transform: scale(0.95); opacity: 0.8; }
+
+  /* ─── Ripple effect ───────────────────────────────────── */
+  .ripple-container { position: relative; overflow: hidden; }
   .ripple-container::after {
-    content: '';
-    position: absolute;
+    content: ''; position: absolute;
     top: 50%; left: 50%;
     width: 20px; height: 20px;
     margin: -10px 0 0 -10px;
     border-radius: 50%;
     background: rgba(255,255,255,0.15);
-    transform: scale(0);
-    opacity: 0;
+    transform: scale(0); opacity: 0;
     pointer-events: none;
   }
-  .ripple-container:active::after {
-    animation: ripple 0.5s ease-out forwards;
+  .ripple-container:active::after { animation: ripple 0.5s ease-out forwards; }
+
+  /* ─── Page transition ──────────────────────────────────── */
+  .page-enter { animation: fadeIn 0.28s ease forwards; }
+
+  /* ─── Gradient animated bg ────────────────────────────── */
+  .gradient-animate {
+    background-size: 200% 200%;
+    animation: gradientShift 4s ease infinite;
   }
 
-  /* Page content fade-in */
-  .page-enter {
-    animation: fadeIn 0.3s ease forwards;
+  /* ─── Glass morphism ───────────────────────────────────── */
+  .glass {
+    background: rgba(24,24,24,0.8);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  .glass-light {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 
-  /* Safe area for PWA */
-  .safe-bottom {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* ─── Safe area (PWA / notch) ─────────────────────────── */
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .safe-top { padding-top: env(safe-area-inset-top, 0px); }
+
+  /* ─── Song item hover ──────────────────────────────────── */
+  .song-item {
+    transition: background-color 0.15s ease, transform 0.1s ease;
   }
-  .safe-top {
-    padding-top: env(safe-area-inset-top, 0px);
+  .song-item:active { transform: scale(0.985); }
+
+  /* ─── Card hover ───────────────────────────────────────── */
+  .card-hover {
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.15s ease;
+  }
+  .card-hover:hover { transform: translateY(-2px); }
+  .card-hover:active { transform: translateY(0) scale(0.98); }
+
+  /* ─── Playlist cover gradient ──────────────────────────── */
+  .playlist-cover-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+  }
+
+  /* ─── Settings toggle ──────────────────────────────────── */
+  .toggle-track {
+    transition: background-color 0.25s ease;
+  }
+  .toggle-thumb {
+    transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
   }
 }
