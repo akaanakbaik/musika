@@ -1,7 +1,7 @@
 {
   "version": 2,
   "buildCommand": "",
-  "installCommand": "echo 'Using pre-built dist'",
+  "installCommand": "echo skip",
   "outputDirectory": "artifacts/music-player/dist/public",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "https://musika-api.replit.app/api/$1" },
@@ -15,7 +15,7 @@
       ]
     },
     {
-      "source": "/manifest.webmanifest",
+      "source": "/manifest.json",
       "headers": [
         { "key": "Content-Type", "value": "application/manifest+json" },
         { "key": "Cache-Control", "value": "no-cache" }

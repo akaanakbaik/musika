@@ -33,13 +33,23 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          BASE_PATH: /
         run: pnpm --filter @workspace/music-player run build
+
+      - name: Verify build output exists
+        run: |
+          ls -la artifacts/music-player/dist/public/
+          echo "Index HTML:"
+          cat artifacts/music-player/dist/public/index.html | grep -o 'src="[^"]*"' | head -5
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
 
       - name: Pull Vercel environment
         run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+
+      - name: Create Vercel build output
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy to Vercel Production
         id: deploy
@@ -50,9 +60,14 @@ jobs:
 
       - name: Verify deployment is live
         run: |
-          sleep 20
+          sleep 25
           STATUS=$(curl -o /dev/null -s -w "%{http_code}" "https://musika-one.vercel.app" --max-time 30)
-          echo "Main site: $STATUS"
-          API=$(curl -o /dev/null -s -w "%{http_code}" "https://musika-one.vercel.app/api/music/recommendations" --max-time 30)
-          echo "API health: $API"
-          if [ "$STATUS" = "200" ]; then echo "✓ Deployment verified and live"; else echo "WARNING: site returned $STATUS"; fi
+          BUNDLE=$(curl -s "https://musika-one.vercel.app/" | grep -o 'src="/assets/[^"]*"' | head -1)
+          echo "Main site HTTP: $STATUS"
+          echo "JS bundle: $BUNDLE"
+          if [ "$STATUS" = "200" ]; then
+            echo "✓ Deployment verified and live"
+          else
+            echo "WARNING: site returned $STATUS"
+            exit 1
+          fi
