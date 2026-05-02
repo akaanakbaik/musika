@@ -47,7 +47,13 @@ async function fetchWithTimeout(url: string, options: RequestInit & { timeoutMs?
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...fetchOptions, signal: controller.signal });
+    const res = await fetch(url, { ...fetchOptions, signal: controller.signal });
+    // Guard: if server returns HTML (e.g. offline splash), treat as error
+    const ct = res.headers.get("content-type") || "";
+    if (!ct.includes("application/json") && !ct.includes("text/plain")) {
+      throw new Error(`Server offline or returned unexpected response (${res.status})`);
+    }
+    return res;
   } finally {
     clearTimeout(tid);
   }

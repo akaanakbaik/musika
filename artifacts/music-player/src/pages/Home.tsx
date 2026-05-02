@@ -31,6 +31,7 @@ export default function Home() {
   const { theme, accentColor, lang } = useAppSettings();
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingStep, setLoadingStep] = useState<string>("");
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
 
@@ -50,14 +51,17 @@ export default function Home() {
 
   const load = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
-    else setLoading(true);
+    else { setLoading(true); setLoadingStep(lang === "en" ? "Connecting to server…" : "Menghubungkan ke server…"); }
     setError(false);
     try {
+      setLoadingStep(lang === "en" ? "Loading recommendations…" : "Memuat rekomendasi…");
       const results = await getRecommendations();
       setSongs(results);
+      setLoadingStep("");
     } catch {
       setSongs([]);
       setError(true);
+      setLoadingStep("");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -112,10 +116,18 @@ export default function Home() {
         </div>
 
         {loading ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
-            {Array.from({ length: 10 }).map((_, i) => (
-              <div key={i} className={`rounded-2xl aspect-[3/4] ${isDark ? "skeleton" : "skeleton-light"}`} />
-            ))}
+          <div>
+            {loadingStep && (
+              <div className={`flex items-center gap-2 mb-3 text-xs ${textS}`}>
+                <div className="w-3 h-3 rounded-full animate-pulse" style={{ background: accentColor }} />
+                <span className="animate-pulse">{loadingStep}</span>
+              </div>
+            )}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className={`rounded-2xl aspect-[3/4] ${isDark ? "skeleton" : "skeleton-light"}`} />
+              ))}
+            </div>
           </div>
         ) : error ? (
           /* ─── Error state ─────────────────────────────── */
