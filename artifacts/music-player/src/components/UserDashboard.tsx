@@ -11,6 +11,7 @@ import {
   Trash2, Globe, Check, Palette, Music2, Shield, FileText, Disc3
 } from "lucide-react";
 import AvatarCropper from "./AvatarCropper";
+import { getHQThumbnail, onThumbnailError } from "@/lib/utils";
 
 const LOGO = "https://raw.githubusercontent.com/akaanakbaik/my-cdn/main/musika/logonobglatar121212.png";
 const VERSION = "2.2.0";
@@ -469,8 +470,9 @@ export default function UserDashboard({ open, onClose }: { open: boolean; onClos
               <div className="px-4 pb-6 space-y-1.5 mt-4">
                 {historyItems.map(item => (
                   <div key={item.id} className={`flex items-center gap-3 p-3 rounded-2xl ${card} border`}>
-                    <img src={item.thumbnail} className="w-12 h-12 rounded-xl object-cover flex-shrink-0"
-                      onError={e => { (e.target as HTMLImageElement).src = "https://placehold.co/48x48/333/999?text=♪"; }} alt="" />
+                    <img src={getHQThumbnail(item.thumbnail)} className="w-12 h-12 rounded-xl object-cover img-hq flex-shrink-0"
+                      loading="lazy" decoding="async"
+                      onError={e => onThumbnailError(e, item.thumbnail)} alt="" />
                     <div className="flex-1 min-w-0">
                       <p className={`text-sm font-medium truncate ${textP}`}>{item.title}</p>
                       <p className={`text-xs truncate ${textS}`}>{item.artist}</p>

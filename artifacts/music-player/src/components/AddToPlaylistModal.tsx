@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { useAppSettings } from "@/lib/AppSettingsContext";
 import { toast } from "@/hooks/use-toast";
 import type { Song } from "@/lib/musicApi";
+import { getHQThumbnail, onThumbnailError } from "@/lib/utils";
 
 interface Playlist {
   id: string;
@@ -118,8 +119,8 @@ export default function AddToPlaylistModal({ song, onClose }: Props) {
         {/* Header */}
         <div className={`flex items-center gap-3 px-5 pt-5 pb-4 border-b ${border} flex-shrink-0`}>
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <img src={song.thumbnail} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" alt=""
-              onError={e => { (e.target as HTMLImageElement).src = "https://placehold.co/40x40/333/999?text=♪"; }} />
+            <img src={getHQThumbnail(song.thumbnail)} className="w-10 h-10 rounded-xl object-cover img-hq flex-shrink-0" alt=""
+              decoding="async" onError={e => onThumbnailError(e, song.thumbnail)} />
             <div className="min-w-0">
               <p className={`text-sm font-bold truncate ${textP}`}>Tambah ke Playlist</p>
               <p className={`text-xs truncate ${textS}`}>{song.title}</p>

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { Song } from "@/lib/musicApi";
 import { getPlaylistShareUrl } from "@/lib/config";
+import { getHQThumbnail, onThumbnailError } from "@/lib/utils";
 
 interface PlaylistInfo {
   id: string;
@@ -334,8 +335,9 @@ export default function PlaylistDetail() {
                 onClick={() => playSong(song, songs)}
               >
                 <span className={`w-5 text-xs text-right flex-shrink-0 ${textS}`}>{i + 1}</span>
-                <img src={song.thumbnail} className="w-11 h-11 rounded-xl object-cover flex-shrink-0"
-                  onError={e => { (e.target as HTMLImageElement).src = "https://placehold.co/44x44/333/999?text=♪"; }} alt="" />
+                <img src={getHQThumbnail(song.thumbnail)} className="w-11 h-11 rounded-xl object-cover img-hq flex-shrink-0"
+                  loading="lazy" decoding="async"
+                  onError={e => onThumbnailError(e, song.thumbnail)} alt="" />
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-medium truncate ${textP}`}>{song.title}</p>
                   <p className={`text-xs truncate ${textS}`}>{song.artist}</p>

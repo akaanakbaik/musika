@@ -5,6 +5,7 @@ import { usePlayer } from "@/lib/PlayerContext";
 import { useAppSettings } from "@/lib/AppSettingsContext";
 import { toast } from "@/hooks/use-toast";
 import type { Song } from "@/lib/musicApi";
+import { getHQThumbnail, onThumbnailError } from "@/lib/utils";
 
 interface PublicProfile {
   id: string;
@@ -258,7 +259,7 @@ export default function UserProfileModal({ userId, onClose }: Props) {
                             ) : (
                               playlistSongs[pl.id].slice(0, 10).map((song, i) => (
                                 <div key={i} className={`flex items-center gap-2 py-2 ${i > 0 ? `border-t ${isDark ? "border-white/5" : "border-black/5"}` : ""}`}>
-                                  <img src={song.thumbnail} className="w-8 h-8 rounded-lg object-cover flex-shrink-0" alt="" onError={e => { (e.target as HTMLImageElement).src = "https://placehold.co/32x32/333/999?text=♪"; }} />
+                                  <img src={getHQThumbnail(song.thumbnail)} className="w-8 h-8 rounded-lg object-cover img-hq flex-shrink-0" alt="" decoding="async" onError={e => onThumbnailError(e, song.thumbnail)} />
                                   <div className="flex-1 min-w-0">
                                     <p className={`text-xs font-medium truncate ${textP}`}>{song.title}</p>
                                     <p className={`text-[10px] ${textS} truncate`}>{song.artist}</p>

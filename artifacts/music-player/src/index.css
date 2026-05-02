@@ -124,11 +124,34 @@
 
 @layer base {
   * { @apply border-border; }
+
   body {
     @apply font-sans antialiased bg-background text-foreground;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Prevent subpixel blurring on GPU-composited layers */
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* ─── Sharp image rendering on all screens ─────────────── */
+  img {
+    image-rendering: -webkit-optimize-contrast; /* Safari / old WebKit */
+    image-rendering: crisp-edges;               /* Firefox / standard  */
+    /* Override with high-quality for scaled/thumbnail images  */
+  }
+  img.img-hq {
+    image-rendering: auto;                      /* Let browser choose HQ bicubic */
+    image-rendering: high-quality;
+  }
+
+  /* ─── GPU isolation for blur layers ────────────────────── */
+  .blur-layer {
+    will-change: transform;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    transform: translateZ(0);
   }
 }
 

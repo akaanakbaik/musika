@@ -6,6 +6,7 @@ import { sourceLabels } from "@/lib/musicApi";
 import { YouTubeIcon, SpotifyIcon, AppleMusicIcon, SoundCloudIcon, GlobeIcon } from "@/components/SourceIcon";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "@/hooks/use-toast";
+import { getHQThumbnail, onThumbnailError } from "@/lib/utils";
 
 const SOURCE_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   youtube:    YouTubeIcon,
@@ -33,16 +34,15 @@ export function SongCard({ song, queue, variant = "default", index }: SongCardPr
   const srcInfo     = sourceLabels[song.source] || { label: song.source, color: "#888", bg: "bg-gray-600" };
   const SourceIconComp = SOURCE_ICON_MAP[song.source] || GlobeIcon;
 
+  const thumb = getHQThumbnail(song.thumbnail);
+
   const handlePlay = () => {
     if (isActive && !isResolving) {
-      // Same song, not loading → toggle play/pause
       if (isPlaying) pause();
       else resume();
     } else if (isActive && isResolving) {
-      // Same song, still loading → do nothing (already loading this song)
       return;
     } else {
-      // Different song → start playing immediately (cancels any current load)
       playSong(song, queue || [song]);
     }
   };
@@ -95,10 +95,12 @@ export function SongCard({ song, queue, variant = "default", index }: SongCardPr
 
         <div className="relative flex-shrink-0">
           <img
-            src={song.thumbnail}
+            src={thumb}
             alt={song.title}
-            className={`w-10 h-10 rounded object-cover ${isLoading ? "opacity-60" : ""}`}
-            onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/40x40/333/999?text=M"; }}
+            className={`w-10 h-10 rounded object-cover img-hq ${isLoading ? "opacity-60" : ""}`}
+            loading="lazy"
+            decoding="async"
+            onError={(e) => onThumbnailError(e, song.thumbnail)}
           />
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center rounded bg-black/50">
@@ -154,10 +156,12 @@ export function SongCard({ song, queue, variant = "default", index }: SongCardPr
       {/* Thumbnail */}
       <div className="relative mb-4">
         <img
-          src={song.thumbnail}
+          src={thumb}
           alt={song.title}
-          className={`w-full aspect-square object-cover rounded-md shadow-lg transition-all duration-300 ${isLoading ? "brightness-50" : ""}`}
-          onError={(e) => { (e.target as HTMLImageElement).src = "https://via.placeholder.com/200x200/333/999?text=M"; }}
+          className={`w-full aspect-square object-cover rounded-md shadow-lg img-hq transition-all duration-300 ${isLoading ? "brightness-50" : ""}`}
+          loading="lazy"
+          decoding="async"
+          onError={(e) => onThumbnailError(e, song.thumbnail)}
         />
 
         {/* Loading overlay */}
@@ -168,7 +172,7 @@ export function SongCard({ song, queue, variant = "default", index }: SongCardPr
           </div>
         )}
 
-        {/* Play button (shows on hover when not loading) */}
+        {/* Play button */}
         {!isLoading && (
           <button
             className="absolute bottom-2 right-2 w-12 h-12 rounded-full bg-[#1DB954] text-black flex items-center justify-center shadow-lg transition-all duration-200 translate-y-2 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 hover:scale-105 hover:bg-[#1ed760]"
@@ -186,7 +190,7 @@ export function SongCard({ song, queue, variant = "default", index }: SongCardPr
           <SourceIconComp className="w-2.5 h-2.5" /> {srcInfo.label}
         </span>
 
-        {/* Playing indicator (animated bars) */}
+        {/* Playing indicator */}
         {isActive && isPlaying && !isLoading && (
           <div className="absolute bottom-2 left-2 flex items-end gap-0.5">
             {[0, 1, 2].map(i => (

@@ -8,6 +8,7 @@ import { YouTubeIcon, SpotifyIcon, AppleMusicIcon, SoundCloudIcon, GlobeIcon } f
 import { useAppSettings } from "@/lib/AppSettingsContext";
 import AddToPlaylistModal from "./AddToPlaylistModal";
 import { api } from "@/lib/config";
+import { getHQThumbnail, onThumbnailError } from "@/lib/utils";
 
 const SOURCE_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   youtube: YouTubeIcon, spotify: SpotifyIcon, apple: AppleMusicIcon, soundcloud: SoundCloudIcon,
@@ -97,10 +98,11 @@ export function Player() {
           <div className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer" onClick={() => setIsExpanded(true)}>
             <div className="relative flex-shrink-0">
               <img
-                src={currentSong.thumbnail}
+                src={getHQThumbnail(currentSong.thumbnail)}
                 alt={currentSong.title}
-                className={`w-12 h-12 rounded-lg object-cover transition-opacity duration-300 ${isResolving ? "opacity-50" : "opacity-100"}`}
-                onError={e => { (e.target as HTMLImageElement).src = "https://placehold.co/48x48/333/999?text=♪"; }}
+                className={`w-12 h-12 rounded-lg object-cover img-hq transition-opacity duration-300 ${isResolving ? "opacity-50" : "opacity-100"}`}
+                decoding="async"
+                onError={e => onThumbnailError(e, currentSong.thumbnail)}
               />
               {isResolving && (
                 <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/50">
@@ -231,9 +233,19 @@ export function Player() {
 
       {/* ===== EXPANDED PLAYER ===== */}
       {isExpanded && (
-        <div className="fixed inset-0 z-[100] flex flex-col overflow-hidden" style={{ background: isDark ? "#0d0d0d" : "#f0f0f0" }}>
-          {/* Blurred BG */}
-          <div className="absolute inset-0" style={{ backgroundImage: `url(${currentSong.thumbnail})`, backgroundSize: "cover", backgroundPosition: "center", filter: "blur(60px) brightness(0.25) saturate(2)", transform: "scale(1.15)" }} />
+        <div className="fixed inset-0 z-[100] flex flex-col overflow-hidden" style={{ background: isDark ? "#0d0d0d" : "#f0f0f0", isolation: "isolate" }}>
+          {/* Blurred BG — isolated GPU layer so blur never leaks onto content */}
+          <div
+            className="absolute inset-0 blur-layer"
+            style={{
+              backgroundImage: `url(${getHQThumbnail(currentSong.thumbnail)})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              filter: "blur(50px) brightness(0.22) saturate(1.8)",
+              transform: "scale(1.18) translateZ(0)",
+              contain: "strict",
+            }}
+          />
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/40 to-black/80" />
 
           <div className="relative flex-1 flex flex-col items-center justify-start px-6 pt-14 pb-4 overflow-y-auto">
@@ -251,7 +263,13 @@ export function Player() {
 
             {/* Artwork */}
             <div className="w-full max-w-[280px] md:max-w-sm aspect-square rounded-2xl overflow-hidden shadow-2xl mb-8 mt-4">
-              <img src={currentSong.thumbnail} alt={currentSong.title} className="w-full h-full object-cover" />
+              <img
+                src={getHQThumbnail(currentSong.thumbnail)}
+                alt={currentSong.title}
+                className="w-full h-full object-cover img-hq"
+                decoding="async"
+                onError={e => onThumbnailError(e, currentSong.thumbnail)}
+              />
             </div>
 
             {/* Info + heart */}
@@ -350,7 +368,7 @@ export function Player() {
                   const isCurr = song.videoId === currentSong.videoId;
                   return (
                     <div key={`${song.videoId}-${i}`} className={`flex items-center gap-3 p-2 rounded-xl ${isCurr ? "bg-white/15" : "hover:bg-white/5"}`}>
-                      <img src={song.thumbnail} className="w-10 h-10 rounded-lg object-cover" alt="" />
+                      <img src={getHQThumbnail(song.thumbnail)} className="w-10 h-10 rounded-lg object-cover img-hq" loading="lazy" decoding="async" alt="" onError={e => onThumbnailError(e, song.thumbnail)} />
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-medium truncate" style={{ color: isCurr ? accentColor : "white" }}>{song.title}</p>
                         <p className="text-white/40 text-[10px] truncate">{song.artist}</p>
