@@ -27,18 +27,17 @@ export function Header() {
   }, []);
 
   const isDark = theme === "dark";
-  const bg = isDark
-    ? scrolled ? "bg-[#121212]/95 shadow-sm border-b border-white/8" : "bg-[#121212]/80"
-    : scrolled ? "bg-white/95 shadow-sm border-b border-black/8" : "bg-white/80";
+  const headerClass = isDark
+    ? scrolled ? "glass-header" : "bg-[#121212]/70 backdrop-blur-xl"
+    : scrolled ? "glass-header-light" : "bg-white/70 backdrop-blur-xl";
 
   const textClass = isDark ? "text-white" : "text-[#121212]";
   const subClass = isDark ? "text-white/40" : "text-[#121212]/40";
 
   return (
     <>
-      {/* ONLY visible on mobile — desktop uses Sidebar */}
       <header
-        className={`md:hidden fixed top-0 left-0 right-0 z-40 transition-all duration-300 backdrop-blur-md ${bg}`}
+        className={`md:hidden fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${headerClass}`}
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <div className="flex items-center justify-between px-4 h-14">
@@ -51,7 +50,7 @@ export function Header() {
 
           <button
             onClick={() => setDashOpen(true)}
-            className="flex items-center justify-center focus:outline-none active:scale-90 transition-transform"
+            className={`flex items-center justify-center focus:outline-none active:scale-90 transition-transform rounded-full ${isDark ? "glass-btn" : "glass-btn-light"} p-0.5`}
             aria-label="Buka Dashboard"
           >
             {user ? (
@@ -59,20 +58,20 @@ export function Header() {
                 <img
                   src={profile.avatar_url}
                   alt="avatar"
-                  className="w-9 h-9 rounded-full object-cover border-2"
+                  className="w-8 h-8 rounded-full object-cover border-2"
                   style={{ borderColor: accentColor }}
                 />
               ) : (
                 <div
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-black text-sm font-bold shadow-lg"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-black text-sm font-bold"
                   style={{ background: accentColor }}
                 >
                   {getInitial(user.email || "", profile?.username)}
                 </div>
               )
             ) : (
-              <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center ${isDark ? "border-white/20 bg-white/10" : "border-black/20 bg-black/5"}`}>
-                <svg viewBox="0 0 24 24" fill="currentColor" className={`w-5 h-5 ${subClass}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isDark ? "bg-white/10" : "bg-black/5"}`}>
+                <svg viewBox="0 0 24 24" fill="currentColor" className={`w-4 h-4 ${subClass}`}>
                   <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
                 </svg>
               </div>

@@ -42,31 +42,42 @@ export interface PrepareResult {
   cached?: boolean;
 }
 
+async function fetchWithTimeout(url: string, options: RequestInit & { timeoutMs?: number } = {}): Promise<Response> {
+  const { timeoutMs = 12000, ...fetchOptions } = options;
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...fetchOptions, signal: controller.signal });
+  } finally {
+    clearTimeout(tid);
+  }
+}
+
 export async function searchMusic(q: string, source: Source = "all"): Promise<SearchResults> {
-  const res = await fetch(`${BASE}/api/music/search?q=${encodeURIComponent(q)}&source=${source}`);
+  const res = await fetchWithTimeout(`${BASE}/api/music/search?q=${encodeURIComponent(q)}&source=${source}`, { timeoutMs: 20000 });
   const data = await res.json();
   if (!data.success) throw new Error(data.error || "Search failed");
   return data.results as SearchResults;
 }
 
-// Search a single source — uses existing /search endpoint with source param (for real-time progress)
 export async function searchSource(q: string, source: "youtube" | "spotify" | "apple" | "soundcloud"): Promise<Song[]> {
-  const res = await fetch(`${BASE}/api/music/search?q=${encodeURIComponent(q)}&source=${source}`);
+  const res = await fetchWithTimeout(`${BASE}/api/music/search?q=${encodeURIComponent(q)}&source=${source}`, { timeoutMs: 20000 });
   const data = await res.json();
   if (!data.success) return [];
   return (data.results?.[source] as Song[]) || [];
 }
 
 export async function getRecommendations(): Promise<Song[]> {
-  const res = await fetch(`${BASE}/api/music/recommendations`);
+  const res = await fetchWithTimeout(`${BASE}/api/music/recommendations`, { timeoutMs: 12000 });
   const data = await res.json();
   if (!data.success) throw new Error(data.error || "Failed to get recommendations");
   return data.results as Song[];
 }
 
 export async function downloadSong(url: string, source: string): Promise<DownloadResult> {
-  const res = await fetch(
-    `${BASE}/api/music/download?url=${encodeURIComponent(url)}&source=${encodeURIComponent(source)}`
+  const res = await fetchWithTimeout(
+    `${BASE}/api/music/download?url=${encodeURIComponent(url)}&source=${encodeURIComponent(source)}`,
+    { timeoutMs: 30000 }
   );
   const data = await res.json();
   if (!data.success) throw new Error(data.error || "Download failed");
@@ -74,11 +85,7 @@ export async function downloadSong(url: string, source: string): Promise<Downloa
 }
 
 export async function prepareSong(song: Song, signal?: AbortSignal): Promise<PrepareResult> {
-  const params = new URLSearchParams({
-    url:     song.url,
-    source:  song.source,
-    videoId: song.videoId
-  });
+  const params = new URLSearchParams({ url: song.url, source: song.source, videoId: song.videoId });
   const res = await fetch(`${BASE}/api/music/prepare?${params}`, { signal });
   const data = await res.json();
   if (!data.success) throw new Error(data.error || "Gagal menyiapkan lagu");
@@ -86,8 +93,9 @@ export async function prepareSong(song: Song, signal?: AbortSignal): Promise<Pre
 }
 
 export async function downloadSongByQuery(q: string, source: string = "spotify"): Promise<DownloadResult> {
-  const res = await fetch(
-    `${BASE}/api/music/download?q=${encodeURIComponent(q)}&source=${encodeURIComponent(source)}`
+  const res = await fetchWithTimeout(
+    `${BASE}/api/music/download?q=${encodeURIComponent(q)}&source=${encodeURIComponent(source)}`,
+    { timeoutMs: 30000 }
   );
   const data = await res.json();
   if (!data.success) throw new Error(data.error || "Download failed");
@@ -95,7 +103,7 @@ export async function downloadSongByQuery(q: string, source: string = "spotify")
 }
 
 export async function aiChat(message: string): Promise<string> {
-  const res = await fetch(`${BASE}/api/ai/chat?message=${encodeURIComponent(message)}`);
+  const res = await fetchWithTimeout(`${BASE}/api/ai/chat?message=${encodeURIComponent(message)}`, { timeoutMs: 30000 });
   const data = await res.json();
   if (!data.success) throw new Error(data.error || "AI chat failed");
   return data.reply;

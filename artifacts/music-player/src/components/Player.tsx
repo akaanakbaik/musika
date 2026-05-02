@@ -77,14 +77,13 @@ export function Player() {
   };
 
   const RepeatIcon = repeat === "one" ? Repeat1 : Repeat;
-  const miniPlayerBg = isDark ? "bg-[#181818] border-white/10" : "bg-white border-black/10";
   const miniTextP = isDark ? "text-white" : "text-[#121212]";
   const miniTextS = isDark ? "text-white/50" : "text-[#121212]/50";
 
   return (
     <>
       {/* ===== MINI PLAYER ===== */}
-      <div className={`fixed bottom-[60px] md:bottom-0 left-0 right-0 z-50 border-t ${miniPlayerBg} shadow-lg`}>
+      <div className={`fixed bottom-[60px] md:bottom-0 left-0 right-0 z-50 ${isDark ? "glass-player" : "glass-player-light"}`}>
         {/* Progress bar */}
         <div className={`w-full h-0.5 ${isDark ? "bg-white/10" : "bg-black/10"} cursor-pointer`} onClick={e => {
           const rect = e.currentTarget.getBoundingClientRect();

@@ -17,27 +17,41 @@ export function BottomNav() {
     { path: "/ai", icon: Bot, labelKey: "ai" as const },
   ];
 
-  const navBg = isDark
-    ? "bg-[#0A0A0A]/95 border-white/8"
-    : "bg-white/95 border-black/10";
-
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-      <div className={`${navBg} backdrop-blur-xl border-t flex items-center justify-around px-1 h-[60px]`}>
+    <nav
+      className={`fixed bottom-0 left-0 right-0 z-50 md:hidden ${isDark ? "glass-nav" : "glass-nav-light"}`}
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+    >
+      <div className="flex items-center justify-around px-1 h-[60px]">
         {items.map(({ path, icon: Icon, labelKey }) => {
           const active = location === path || (path !== "/" && location.startsWith(path));
-          const textClass = active ? (isDark ? "text-white" : "text-[#121212]") : (isDark ? "text-white/40" : "text-[#121212]/40");
+          const textClass = active
+            ? (isDark ? "text-white" : "text-[#121212]")
+            : (isDark ? "text-white/38" : "text-[#121212]/38");
           return (
             <Link
               key={path}
               href={path}
-              className="relative flex flex-col items-center justify-center gap-0.5 w-14 h-full transition-all duration-200 active:scale-90 select-none touch-manipulation"
+              className="relative flex flex-col items-center justify-center gap-0.5 w-14 h-full transition-all duration-200 active:scale-85 select-none touch-manipulation"
             >
+              {/* Active indicator pill */}
               {active && (
-                <span className="absolute top-1 left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full" style={{ background: accentColor }} />
+                <span
+                  className="absolute top-1.5 left-1/2 -translate-x-1/2 w-8 h-[3px] rounded-full"
+                  style={{ background: accentColor, boxShadow: `0 0 8px ${accentColor}88` }}
+                />
               )}
-              <Icon className={`w-5 h-5 transition-all duration-200 ${textClass}`} strokeWidth={active ? 2.5 : 1.8} style={active ? { color: isDark ? "white" : "#121212" } : {}} />
-              <span className={`text-[10px] font-medium transition-all duration-200 ${textClass}`}>
+
+              {/* Icon with glass bubble on active */}
+              <div className={`relative flex items-center justify-center w-8 h-8 rounded-2xl transition-all duration-200 ${active ? "glass-btn" : ""}`}>
+                <Icon
+                  className={`w-5 h-5 transition-all duration-200 ${textClass}`}
+                  strokeWidth={active ? 2.5 : 1.7}
+                  style={active ? { color: isDark ? "white" : "#121212" } : {}}
+                />
+              </div>
+
+              <span className={`text-[10px] font-medium transition-all duration-200 ${textClass} ${active ? "font-semibold" : ""}`}>
                 {t(lang, labelKey)}
               </span>
             </Link>

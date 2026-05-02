@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Clock, Trash2, Lock, RefreshCw } from "lucide-react";
+import { Clock, Trash2, Lock, RefreshCw, Search } from "lucide-react";
 import { SongCard } from "@/components/SongCard";
 import { useAuth } from "@/lib/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -55,12 +55,36 @@ export default function History() {
 
   if (!user) {
     return (
-      <div className={`min-h-screen ${bg} flex flex-col items-center justify-center text-center px-4`}>
-        <Lock className={`w-16 h-16 mb-4 ${textS}`} />
-        <h2 className={`text-2xl font-bold mb-2 ${textP}`}>{lang === "en" ? "Sign in to see your History" : "Masuk untuk melihat Riwayat"}</h2>
-        <p className={`text-sm mb-6 ${textS}`}>{lang === "en" ? "See what you've been listening to" : "Lihat apa yang baru kamu dengarkan"}</p>
-        <Link href="/auth" className="font-bold px-8 py-3 rounded-full text-black" style={{ background: accentColor }}>
+      <div className={`min-h-screen ${bg} flex flex-col items-center justify-center text-center px-6`}>
+        {/* Decorative glass icon */}
+        <div
+          className={`mb-8 w-28 h-28 rounded-3xl flex items-center justify-center shadow-2xl ${isDark ? "glass-surface" : "glass-light"}`}
+          style={{ boxShadow: `0 8px 40px ${accentColor}33` }}
+        >
+          <Clock className="w-14 h-14" style={{ color: accentColor }} />
+        </div>
+        <h2 className={`text-2xl font-bold mb-2 ${textP}`}>
+          {lang === "en" ? "Your Play History" : "Riwayat Putar"}
+        </h2>
+        <p className={`text-sm mb-2 ${textS}`}>
+          {lang === "en" ? "Sign in to track what you've been listening to" : "Masuk untuk melacak lagu yang kamu dengarkan"}
+        </p>
+        <p className={`text-xs mb-6 ${textS}`}>
+          {lang === "en" ? "Every song you play will be saved here" : "Setiap lagu yang kamu putar akan tersimpan di sini"}
+        </p>
+        <Link
+          href="/auth"
+          className="font-bold px-8 py-3 rounded-full text-black transition-all active:scale-95 shadow-lg"
+          style={{ background: accentColor }}
+        >
           {t(lang, "sign_in")}
+        </Link>
+        <Link
+          href="/search"
+          className={`mt-3 flex items-center gap-2 font-medium px-6 py-2.5 rounded-full text-sm transition-all active:scale-95 ${isDark ? "glass-btn text-white" : "glass-btn-light text-[#121212]"}`}
+        >
+          <Search className="w-3.5 h-3.5" />
+          {lang === "en" ? "Browse Music" : "Jelajahi Musik"}
         </Link>
       </div>
     );
@@ -68,22 +92,34 @@ export default function History() {
 
   return (
     <div className={`min-h-screen ${bg} pb-24 md:pb-8`}>
+      {/* Header gradient */}
       <div className="bg-gradient-to-b from-blue-900/60 to-transparent px-6 pt-8 pb-6">
         <div className="flex items-end gap-4 md:gap-6">
-          <div className="w-28 h-28 md:w-40 md:h-40 rounded-2xl bg-gradient-to-br from-blue-400 to-cyan-600 flex items-center justify-center flex-shrink-0 shadow-2xl">
+          <div
+            className="w-28 h-28 md:w-40 md:h-40 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-2xl glass-surface"
+            style={{ background: "linear-gradient(135deg, #1d4ed8, #0891b2)", boxShadow: "0 8px 40px rgba(29,78,216,0.4)" }}
+          >
             <Clock className="w-14 h-14 md:w-20 md:h-20 text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className={`text-xs uppercase font-semibold tracking-wider mb-1 ${textS}`}>{lang === "en" ? "Recent" : "Terkini"}</p>
+            <p className={`text-xs uppercase font-semibold tracking-wider mb-1 ${textS}`}>
+              {lang === "en" ? "Recent" : "Terkini"}
+            </p>
             <h1 className={`text-3xl md:text-5xl font-black mb-1 ${textP}`}>{t(lang, "history")}</h1>
             <p className={`text-sm ${textS}`}>{songs.length} {lang === "en" ? "plays" : "diputar"}</p>
           </div>
           <div className="flex gap-2 flex-shrink-0">
-            <button onClick={loadHistory} className={`p-2 rounded-full ${isDark ? "bg-white/10 hover:bg-white/20" : "bg-black/10 hover:bg-black/20"} transition-colors`}>
+            <button
+              onClick={loadHistory}
+              className={`p-2.5 rounded-full transition-all active:scale-90 ${isDark ? "glass-btn" : "glass-btn-light"}`}
+            >
               <RefreshCw className={`w-4 h-4 ${textS}`} />
             </button>
             {songs.length > 0 && (
-              <button onClick={clearHistory} className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm transition-colors ${isDark ? "bg-white/10 hover:bg-white/20 text-white/70" : "bg-black/10 hover:bg-black/20 text-black/70"}`}>
+              <button
+                onClick={clearHistory}
+                className={`flex items-center gap-2 px-3 py-2 rounded-full text-sm transition-all active:scale-90 ${isDark ? "glass-btn text-white/70" : "glass-btn-light text-black/70"}`}
+              >
                 <Trash2 className="w-4 h-4" />
               </button>
             )}
@@ -95,20 +131,26 @@ export default function History() {
         {loading ? (
           <div className="space-y-2 mt-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className={`flex items-center gap-3 p-3 rounded-xl animate-pulse ${isDark ? "bg-white/5" : "bg-black/5"}`}>
-                <div className={`w-12 h-12 rounded-lg ${isDark ? "bg-white/10" : "bg-black/10"}`} />
-                <div className="flex-1">
-                  <div className={`h-3 rounded-full w-3/4 mb-2 ${isDark ? "bg-white/10" : "bg-black/10"}`} />
-                  <div className={`h-2 rounded-full w-1/2 ${isDark ? "bg-white/10" : "bg-black/10"}`} />
-                </div>
-              </div>
+              <div key={i} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? "skeleton" : "skeleton-light"}`} style={{ height: 64 }} />
             ))}
           </div>
         ) : songs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <Clock className={`w-16 h-16 mb-4 ${textS}`} />
-            <h3 className={`text-xl font-semibold mb-2 ${textP}`}>{lang === "en" ? "No plays yet" : "Belum ada riwayat"}</h3>
-            <p className={`text-sm ${textS}`}>{lang === "en" ? "Songs you listen to will appear here" : "Lagu yang kamu putar akan muncul di sini"}</p>
+          <div className={`mt-6 rounded-2xl p-8 text-center ${isDark ? "glass-surface" : "glass-light"}`}>
+            <Clock className={`w-12 h-12 mx-auto mb-3 ${textS}`} />
+            <h3 className={`text-xl font-semibold mb-2 ${textP}`}>
+              {lang === "en" ? "No plays yet" : "Belum ada riwayat"}
+            </h3>
+            <p className={`text-sm mb-4 ${textS}`}>
+              {lang === "en" ? "Songs you listen to will appear here" : "Lagu yang kamu putar akan muncul di sini"}
+            </p>
+            <Link
+              href="/search"
+              className="inline-flex items-center gap-2 font-bold px-6 py-2.5 rounded-full text-sm text-black transition-all active:scale-95"
+              style={{ background: accentColor }}
+            >
+              <Search className="w-4 h-4" />
+              {lang === "en" ? "Find Music" : "Cari Musik"}
+            </Link>
           </div>
         ) : (
           <div className="mt-4 space-y-1">

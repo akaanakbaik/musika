@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Heart, Music, Lock, RefreshCw } from "lucide-react";
+import { Heart, Music, Lock, RefreshCw, Search } from "lucide-react";
 import { SongCard } from "@/components/SongCard";
 import { useAuth } from "@/lib/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -45,12 +45,34 @@ export default function Favorites() {
 
   if (!user) {
     return (
-      <div className={`min-h-screen ${bg} flex flex-col items-center justify-center text-center px-4`}>
-        <Lock className={`w-16 h-16 mb-4 ${textS}`} />
-        <h2 className={`text-2xl font-bold mb-2 ${textP}`}>{lang === "en" ? "Sign in to see your Liked Songs" : "Masuk untuk melihat Lagu Disukai"}</h2>
-        <p className={`text-sm mb-6 ${textS}`}>{lang === "en" ? "Save songs you love and access them anytime" : "Simpan lagu favorit dan akses kapan saja"}</p>
-        <Link href="/auth" className="font-bold px-8 py-3 rounded-full text-black" style={{ background: accentColor }}>
+      <div className={`min-h-screen ${bg} flex flex-col items-center justify-center text-center px-6`}>
+        {/* Decorative glass card */}
+        <div className={`mb-8 w-28 h-28 rounded-3xl flex items-center justify-center shadow-2xl ${isDark ? "glass-surface" : "glass-light"}`}
+          style={{ boxShadow: `0 8px 40px ${accentColor}33` }}>
+          <Heart className="w-14 h-14" style={{ color: accentColor }} />
+        </div>
+        <h2 className={`text-2xl font-bold mb-2 ${textP}`}>
+          {lang === "en" ? "Your Liked Songs" : "Lagu Disukai"}
+        </h2>
+        <p className={`text-sm mb-2 ${textS}`}>
+          {lang === "en" ? "Sign in to see and save your favorite songs" : "Masuk untuk melihat dan menyimpan lagu favorit"}
+        </p>
+        <p className={`text-xs mb-6 ${textS}`}>
+          {lang === "en" ? "Tap ♡ on any song to save it here" : "Ketuk ♡ pada lagu mana saja untuk menyimpannya di sini"}
+        </p>
+        <Link
+          href="/auth"
+          className="font-bold px-8 py-3 rounded-full text-black transition-all active:scale-95 shadow-lg"
+          style={{ background: accentColor }}
+        >
           {t(lang, "sign_in")}
+        </Link>
+        <Link
+          href="/search"
+          className={`mt-3 flex items-center gap-2 font-medium px-6 py-2.5 rounded-full text-sm transition-all active:scale-95 ${isDark ? "glass-btn text-white" : "glass-btn-light text-[#121212]"}`}
+        >
+          <Search className="w-3.5 h-3.5" />
+          {lang === "en" ? "Browse Music" : "Jelajahi Musik"}
         </Link>
       </div>
     );
@@ -58,17 +80,24 @@ export default function Favorites() {
 
   return (
     <div className={`min-h-screen ${bg} pb-24 md:pb-8`}>
+      {/* Header gradient */}
       <div className="bg-gradient-to-b from-purple-900/60 to-transparent px-6 pt-8 pb-6">
         <div className="flex items-end gap-4 md:gap-6">
-          <div className="w-28 h-28 md:w-40 md:h-40 rounded-2xl bg-gradient-to-br from-purple-400 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-2xl">
+          <div
+            className="w-28 h-28 md:w-40 md:h-40 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-2xl glass-surface"
+            style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)", boxShadow: "0 8px 40px rgba(124,58,237,0.4)" }}
+          >
             <Heart className="w-14 h-14 md:w-20 md:h-20 text-white fill-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className={`text-xs uppercase font-semibold tracking-wider mb-1 ${textS}`}>{lang === "en" ? "Playlist" : "Playlist"}</p>
+            <p className={`text-xs uppercase font-semibold tracking-wider mb-1 ${textS}`}>Playlist</p>
             <h1 className={`text-3xl md:text-5xl font-black mb-1 ${textP}`}>{t(lang, "favorites")}</h1>
             <p className={`text-sm ${textS}`}>{songs.length} {lang === "en" ? "songs" : "lagu"}</p>
           </div>
-          <button onClick={loadFavorites} className={`p-2 rounded-full ${isDark ? "bg-white/10 hover:bg-white/20" : "bg-black/10 hover:bg-black/20"} transition-colors flex-shrink-0`}>
+          <button
+            onClick={loadFavorites}
+            className={`p-2.5 rounded-full transition-all active:scale-90 ${isDark ? "glass-btn" : "glass-btn-light"} flex-shrink-0`}
+          >
             <RefreshCw className={`w-4 h-4 ${textS}`} />
           </button>
         </div>
@@ -78,20 +107,26 @@ export default function Favorites() {
         {loading ? (
           <div className="space-y-2 mt-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className={`flex items-center gap-3 p-3 rounded-xl animate-pulse ${isDark ? "bg-white/5" : "bg-black/5"}`}>
-                <div className={`w-12 h-12 rounded-lg ${isDark ? "bg-white/10" : "bg-black/10"}`} />
-                <div className="flex-1">
-                  <div className={`h-3 rounded-full w-3/4 mb-2 ${isDark ? "bg-white/10" : "bg-black/10"}`} />
-                  <div className={`h-2 rounded-full w-1/2 ${isDark ? "bg-white/10" : "bg-black/10"}`} />
-                </div>
-              </div>
+              <div key={i} className={`flex items-center gap-3 p-3 rounded-xl ${isDark ? "skeleton" : "skeleton-light"}`} style={{ height: 64 }} />
             ))}
           </div>
         ) : songs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <Heart className={`w-16 h-16 mb-4 ${textS}`} />
-            <h3 className={`text-xl font-semibold mb-2 ${textP}`}>{lang === "en" ? "Songs you like will appear here" : "Lagu yang kamu sukai akan muncul di sini"}</h3>
-            <p className={`text-sm ${textS}`}>{lang === "en" ? "Tap the heart icon to save songs" : "Ketuk ikon hati untuk menyimpan lagu"}</p>
+          <div className={`mt-6 rounded-2xl p-8 text-center ${isDark ? "glass-surface" : "glass-light"}`}>
+            <Heart className={`w-12 h-12 mx-auto mb-3 ${textS}`} />
+            <h3 className={`text-xl font-semibold mb-2 ${textP}`}>
+              {lang === "en" ? "No liked songs yet" : "Belum ada lagu disukai"}
+            </h3>
+            <p className={`text-sm mb-4 ${textS}`}>
+              {lang === "en" ? "Tap the ♡ icon on any song to save it here" : "Ketuk ikon ♡ pada lagu untuk menyimpannya di sini"}
+            </p>
+            <Link
+              href="/search"
+              className="inline-flex items-center gap-2 font-bold px-6 py-2.5 rounded-full text-sm text-black transition-all active:scale-95"
+              style={{ background: accentColor }}
+            >
+              <Search className="w-4 h-4" />
+              {lang === "en" ? "Find Music" : "Cari Musik"}
+            </Link>
           </div>
         ) : (
           <div className="mt-4 space-y-1">

@@ -71,9 +71,9 @@ export default function SearchResults() {
   const bg = isDark ? "bg-[#121212]" : "bg-[#F5F5F5]";
   const textP = isDark ? "text-white" : "text-[#121212]";
   const textS = isDark ? "text-white/50" : "text-[#121212]/50";
-  const inputBg = isDark ? "bg-[#282828] text-white placeholder:text-white/30" : "bg-white text-[#121212] placeholder:text-black/30 border border-black/10";
-  const tabInactive = isDark ? "bg-[#282828] text-white/60 hover:bg-[#383838] hover:text-white" : "bg-white/80 text-[#121212]/60 hover:bg-white hover:text-[#121212] border border-black/10";
-  const stickyBg = isDark ? "bg-[#121212]/95 border-white/5" : "bg-[#F5F5F5]/95 border-black/5";
+  const inputBg = isDark ? "glass-input text-white placeholder:text-white/35" : "glass-input-light text-[#121212] placeholder:text-black/30";
+  const tabInactive = isDark ? "glass-btn text-white/60 hover:text-white" : "glass-btn-light text-[#121212]/60 hover:text-[#121212]";
+  const stickyBg = isDark ? "bg-[#121212]/80 border-white/5 backdrop-blur-xl" : "bg-[#F5F5F5]/80 border-black/5 backdrop-blur-xl";
   const card = isDark ? "bg-[#1a1a1a] border-white/8" : "bg-white border-black/8";
 
   const looksLikeId = (q: string) => /^#?[A-Z2-9]{7}$/i.test(q.replace(/^#/, "").trim());
