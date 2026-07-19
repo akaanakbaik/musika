@@ -51671,15 +51671,18 @@ async function uploadToCDN(audioUrl, slug) {
     const form = new FormData();
     const blob = new Blob([buffer], { type: contentType });
     form.append("file", blob, `${slug.slice(0, 40)}.${ext}`);
-    const upload2 = await fetch("https://api.kabox.my.id/api/upload", {
+    const upload2 = await fetch("https://cdn.izukaprivate.my.id/upload", {
       method: "POST",
-      headers: { "x-expire": "8h" },
       body: form,
-      signal: AbortSignal.timeout(6e4)
+      signal: AbortSignal.timeout(12e4)
     });
-    if (!upload2.ok) throw new Error(`CDN upload failed: ${upload2.status}`);
+    if (!upload2.ok) {
+      const errText = await upload2.text();
+      throw new Error(`CDN upload failed: ${upload2.status} ${errText}`);
+    }
     const uploadData = await upload2.json();
-    const cdnUrl = uploadData?.url || uploadData?.data?.url;
+    const fn = uploadData?.url?.split("/").pop();
+    const cdnUrl = fn ? `https://cdn.izukaprivate.my.id/cdn/${fn}` : null;
     if (cdnUrl && typeof cdnUrl === "string" && cdnUrl.startsWith("http")) {
       cdnCache.set(audioUrl, cdnUrl);
       if (cdnCache.size > 100) {
@@ -52508,12 +52511,28 @@ var music_default = router2;
 // src/routes/ai.ts
 var import_express3 = __toESM(require_express2(), 1);
 var router3 = (0, import_express3.Router)();
-async function fetchAI(url, timeout = 2e4) {
+async function fetchJSON2(urlOrReq, timeout = 25e3) {
+  let url;
+  let body = void 0;
+  let method = "GET";
+  let extraHeaders = {};
+  if (typeof urlOrReq === "string") {
+    url = urlOrReq;
+  } else {
+    url = urlOrReq.url;
+    body = urlOrReq.body;
+    method = urlOrReq.method || "GET";
+    extraHeaders = urlOrReq.headers || {};
+  }
+  const headers = {
+    "User-Agent": "Mozilla/5.0 musika-ai/3.0",
+    "Accept": "application/json",
+    ...extraHeaders
+  };
   const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 musika-ai/2.0",
-      "Accept": "application/json"
-    },
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : void 0,
     signal: AbortSignal.timeout(timeout)
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -52537,7 +52556,10 @@ function extractReply(json) {
     json?.reply,
     json?.output,
     json?.text,
-    json?.content
+    json?.content,
+    json?.data?.reply,
+    json?.choices?.[0]?.message?.content,
+    json?.candidates?.[0]?.content
   ];
   for (const c of candidates) {
     if (c && typeof c === "string" && c.trim().length > 3) return c.trim();
@@ -52550,33 +52572,34 @@ router3.get("/ai/chat", async (req, res) => {
     return res.status(400).json({ success: false, error: "message is required" });
   }
   const msg = message.trim();
-  const encoded = encodeURIComponent(msg);
-  const contextMsg = encodeURIComponent(
-    `Kamu adalah Musika AI \u2014 asisten musik personal AI yang ramah, cerdas, dan berpengetahuan luas. WAJIB selalu menjawab dalam Bahasa Indonesia yang natural, santai, dan mudah dipahami, apapun bahasa yang digunakan user. Bidang keahlianmu: rekomendasi lagu berdasarkan mood/genre/aktivitas, info artis & album, lirik & makna lagu, sejarah musik, genre musik dunia & Indonesia, K-pop, pop, rock, jazz, lo-fi, EDM, dangdut, dll. Fitur Musika yang bisa kamu jelaskan: pencarian multi-sumber (YouTube/Spotify/Apple Music/SoundCloud), playlist, unduhan offline, sleep timer, AI chat, tema. Gaya menjawab: gunakan emoji secukupnya, berikan daftar rekomendasi yang spesifik dengan nama artis & judul lagu, buat jawaban menarik tapi tetap padat. Jika pertanyaan di luar topik musik & Musika, arahkan dengan ramah ke topik musik sambil tetap membantu. Pesan user: ${msg}`
-  );
   const apis = [
-    // Primary: zenzxz gpt-5 (confirmed working)
+    // API 1: prexzyapis copilot-think (primary)
     async () => {
-      const d = await fetchAI(`https://api.zenzxz.my.id/ai/copilot?message=${contextMsg}&model=gpt-5`);
-      if (!d?.status) throw new Error("API returned status=false");
+      const d = await fetchJSON2({
+        url: "https://prexzyapis.com/ai/copilot-think",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: { text: msg }
+      }, 3e4);
       const reply = extractReply(d);
-      if (!reply) throw new Error("No reply text");
+      if (!reply) throw new Error("No reply from prexzyapis");
       return reply;
     },
-    // Fallback 1: zenzxz default model
+    // API 2: cuki gemini (fallback)
     async () => {
-      const d = await fetchAI(`https://api.zenzxz.my.id/ai/copilot?message=${contextMsg}&model=default`);
-      if (!d?.status) throw new Error("API returned status=false");
+      const d = await fetchJSON2(`https://api.cuki.biz.id/api/ai/gemini?apikey=cuki-x&prompt=${encodeURIComponent(msg)}`, 25e3);
       const reply = extractReply(d);
-      if (!reply) throw new Error("No reply text");
+      if (!reply) throw new Error("No reply from cuki");
       return reply;
     },
-    // Fallback 2: zenzxz think-deeper
+    // API 3: zenzxz (last resort)
     async () => {
-      const d = await fetchAI(`https://api.zenzxz.my.id/ai/copilot?message=${encoded}&model=think-deeper`, 3e4);
-      if (!d?.status) throw new Error("API returned status=false");
+      const contextMsg = encodeURIComponent(
+        `Kamu adalah Musika AI \u2014 asisten musik personal. Jawab dalam Bahasa Indonesia. Pesan: ${msg}`
+      );
+      const d = await fetchJSON2(`https://api.zenzxz.my.id/ai/copilot?message=${contextMsg}&model=gpt-5`, 2e4);
       const reply = extractReply(d);
-      if (!reply) throw new Error("No reply text");
+      if (!reply) throw new Error("No reply from zenzxz");
       return reply;
     }
   ];
@@ -52591,13 +52614,15 @@ router3.get("/ai/chat", async (req, res) => {
   const lowerMsg = msg.toLowerCase();
   let fallbackReply;
   if (lowerMsg.includes("rekomendasi") || lowerMsg.includes("recommend") || lowerMsg.includes("saran")) {
-    fallbackReply = "Untuk rekomendasi musik yang keren, coba cari di tab **Cari** dengan kata kunci genre favoritmu \u2014 contoh: 'lo-fi', 'pop Indonesia', 'K-pop viral', atau 'jazz relax'. Kamu juga bisa cek rekomendasi di halaman Beranda! \u{1F3B5}";
+    fallbackReply = "Untuk rekomendasi musik, coba cari di tab **Cari** dengan kata kunci genre favoritmu! Kamu juga bisa cek rekomendasi di halaman Beranda. \u{1F3B5}";
   } else if (lowerMsg.includes("playlist")) {
-    fallbackReply = "Kamu bisa membuat playlist sendiri di tab **Perpustakaan**! Tambahkan lagu favorit dengan menekan tombol \u22EF pada lagu manapun lalu pilih 'Tambah ke Playlist'. \u{1F3B6}";
-  } else if (lowerMsg.includes("artis") || lowerMsg.includes("artist")) {
-    fallbackReply = "Cari artis favoritmu di tab **Cari**! Kamu bisa filter berdasarkan Spotify, YouTube, Apple Music, atau SoundCloud untuk hasil yang lebih spesifik. \u{1F3A4}";
+    fallbackReply = "Buat playlist sendiri di tab **Perpustakaan**! Tambahkan lagu dengan menekan tombol \u22EF lalu pilih 'Tambah ke Playlist'. \u{1F3B6}";
+  } else if (lowerMsg.includes("artis") || lowerMsg.includes("artist") || lowerMsg.includes("penyanyi")) {
+    fallbackReply = "Cari artis favoritmu di tab **Cari**! Filter berdasarkan Spotify, YouTube, Apple Music, atau SoundCloud. \u{1F3A4}";
+  } else if (lowerMsg.includes("lagu") || lowerMsg.includes("song") || lowerMsg.includes("musik")) {
+    fallbackReply = "Cari lagu di tab **Cari**! Masukkan judul lagu atau artis, dan pilih sumber favoritmu. \u{1F31F}";
   } else {
-    fallbackReply = "Maaf, asisten AI sedang sibuk. Sila coba lagi dalam beberapa saat. Sementara itu, jelajahi musik di tab **Cari** atau lihat **Rekomendasi** di Beranda! \u{1F3B5}";
+    fallbackReply = "Maaf, asisten AI sedang sibuk. Coba lagi dalam beberapa saat. Sementara itu, jelajahi musik di tab **Cari** atau lihat rekomendasi di Beranda! \u{1F3B5}";
   }
   res.json({ success: true, reply: fallbackReply });
 });
@@ -52607,33 +52632,58 @@ var ai_default = router3;
 var import_express4 = __toESM(require_express2(), 1);
 var import_multer = __toESM(require_multer(), 1);
 var router4 = (0, import_express4.Router)();
-var upload = (0, import_multer.default)({ storage: import_multer.default.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
+var upload = (0, import_multer.default)({ storage: import_multer.default.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
+var MAX_SIZE = 5 * 1024 * 1024;
+var CDN_UPLOAD_URL = "https://cdn.izukaprivate.my.id/upload";
+var CDN_BASE_URL = "https://cdn.izukaprivate.my.id/cdn";
+async function safeCDNUpload(buffer, filename, maxRetries = 3) {
+  if (buffer.length > MAX_SIZE) {
+    throw new Error(`File terlalu besar: ${(buffer.length / 1024 / 1024).toFixed(1)}MB (maks ${MAX_SIZE / 1024 / 1024}MB)`);
+  }
+  for (let i = 1; i <= maxRetries; i++) {
+    try {
+      const formData = new FormData();
+      const blob = new Blob([buffer], { type: "application/octet-stream" });
+      formData.append("file", blob, filename);
+      const response = await fetch(CDN_UPLOAD_URL, {
+        method: "POST",
+        body: formData,
+        signal: AbortSignal.timeout(12e4)
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+      const fn = data.url?.split("/").pop();
+      if (!fn) throw new Error("No filename in CDN response");
+      return `${CDN_BASE_URL}/${fn}`;
+    } catch (err) {
+      if (i === maxRetries) throw err;
+      console.warn(`[CDN] Upload attempt ${i} failed: ${err.message}, retrying in ${i}s...`);
+      await new Promise((r) => setTimeout(r, 1e3 * i));
+    }
+  }
+  throw new Error("All CDN upload attempts failed");
+}
 router4.post("/upload", upload.single("file"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ success: false, error: "No file provided" });
   }
-  const expire = req.headers["x-expire"] || "1w";
   try {
-    const formData = new FormData();
-    const blob = new Blob([req.file.buffer], { type: req.file.mimetype });
-    formData.append("file", blob, req.file.originalname);
-    const response = await fetch("https://api.kabox.my.id/api/upload", {
-      method: "POST",
-      headers: { "x-expire": expire },
-      body: formData,
-      signal: AbortSignal.timeout(6e4)
-    });
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Upload API returned ${response.status}: ${errText}`);
-    }
-    const data = await response.json();
-    res.json({
-      success: true,
-      url: data.url,
-      metadata: data.metadata,
-      expires_at: data.metadata?.expires_at
-    });
+    const cdnUrl = await safeCDNUpload(req.file.buffer, req.file.originalname);
+    res.json({ success: true, url: cdnUrl, filename: req.file.originalname, size: req.file.size });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+router4.post("/upload/url", async (req, res) => {
+  const { url, filename } = req.body;
+  if (!url) return res.status(400).json({ success: false, error: "url is required" });
+  try {
+    const response = await fetch(url, { signal: AbortSignal.timeout(6e4) });
+    if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const name = filename || url.split("/").pop() || "file.bin";
+    const cdnUrl = await safeCDNUpload(buffer, name);
+    res.json({ success: true, url: cdnUrl, original_url: url });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

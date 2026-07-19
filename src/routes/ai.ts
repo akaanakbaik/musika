@@ -2,21 +2,40 @@ import { Router, type IRouter } from "express";
 
 const router: IRouter = Router();
 
-async function fetchAI(url: string, timeout = 20000): Promise<any> {
+async function fetchJSON(urlOrReq: string | { url: string; body?: any; method?: string; headers?: Record<string, string> }, timeout = 25000): Promise<any> {
+  let url: string;
+  let body: any = undefined;
+  let method = "GET";
+  let extraHeaders: Record<string, string> = {};
+
+  if (typeof urlOrReq === "string") {
+    url = urlOrReq;
+  } else {
+    url = urlOrReq.url;
+    body = urlOrReq.body;
+    method = urlOrReq.method || "GET";
+    extraHeaders = urlOrReq.headers || {};
+  }
+
+  const headers: Record<string, string> = {
+    "User-Agent": "Mozilla/5.0 musika-ai/3.0",
+    "Accept": "application/json",
+    ...extraHeaders,
+  };
+
   const res = await fetch(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 musika-ai/2.0",
-      "Accept": "application/json"
-    },
-    signal: AbortSignal.timeout(timeout)
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(timeout),
   });
+
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
 function extractReply(json: any): string | null {
   if (!json) return null;
-  // zenzxz format: { status: true, result: { text: "..." } }
   const candidates = [
     json?.result?.text,
     json?.result?.message,
@@ -34,6 +53,9 @@ function extractReply(json: any): string | null {
     json?.output,
     json?.text,
     json?.content,
+    json?.data?.reply,
+    json?.choices?.[0]?.message?.content,
+    json?.candidates?.[0]?.content,
   ];
   for (const c of candidates) {
     if (c && typeof c === "string" && c.trim().length > 3) return c.trim();
@@ -48,43 +70,36 @@ router.get("/ai/chat", async (req, res) => {
   }
 
   const msg = message.trim();
-  const encoded = encodeURIComponent(msg);
-
-  // Full message with music context for APIs that support it
-  const contextMsg = encodeURIComponent(
-    `Kamu adalah Musika AI — asisten musik personal AI yang ramah, cerdas, dan berpengetahuan luas. ` +
-    `WAJIB selalu menjawab dalam Bahasa Indonesia yang natural, santai, dan mudah dipahami, apapun bahasa yang digunakan user. ` +
-    `Bidang keahlianmu: rekomendasi lagu berdasarkan mood/genre/aktivitas, info artis & album, lirik & makna lagu, sejarah musik, genre musik dunia & Indonesia, K-pop, pop, rock, jazz, lo-fi, EDM, dangdut, dll. ` +
-    `Fitur Musika yang bisa kamu jelaskan: pencarian multi-sumber (YouTube/Spotify/Apple Music/SoundCloud), playlist, unduhan offline, sleep timer, AI chat, tema. ` +
-    `Gaya menjawab: gunakan emoji secukupnya, berikan daftar rekomendasi yang spesifik dengan nama artis & judul lagu, buat jawaban menarik tapi tetap padat. ` +
-    `Jika pertanyaan di luar topik musik & Musika, arahkan dengan ramah ke topik musik sambil tetap membantu. ` +
-    `Pesan user: ${msg}`
-  );
 
   // Try multiple AI APIs in order — first working one wins
   const apis = [
-    // Primary: zenzxz gpt-5 (confirmed working)
+    // API 1: prexzyapis copilot-think (primary)
     async () => {
-      const d = await fetchAI(`https://api.zenzxz.my.id/ai/copilot?message=${contextMsg}&model=gpt-5`);
-      if (!d?.status) throw new Error("API returned status=false");
+      const d = await fetchJSON({
+        url: "https://prexzyapis.com/ai/copilot-think",
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: { text: msg },
+      }, 30000);
       const reply = extractReply(d);
-      if (!reply) throw new Error("No reply text");
+      if (!reply) throw new Error("No reply from prexzyapis");
       return reply;
     },
-    // Fallback 1: zenzxz default model
+    // API 2: cuki gemini (fallback)
     async () => {
-      const d = await fetchAI(`https://api.zenzxz.my.id/ai/copilot?message=${contextMsg}&model=default`);
-      if (!d?.status) throw new Error("API returned status=false");
+      const d = await fetchJSON(`https://api.cuki.biz.id/api/ai/gemini?apikey=cuki-x&prompt=${encodeURIComponent(msg)}`, 25000);
       const reply = extractReply(d);
-      if (!reply) throw new Error("No reply text");
+      if (!reply) throw new Error("No reply from cuki");
       return reply;
     },
-    // Fallback 2: zenzxz think-deeper
+    // API 3: zenzxz (last resort)
     async () => {
-      const d = await fetchAI(`https://api.zenzxz.my.id/ai/copilot?message=${encoded}&model=think-deeper`, 30000);
-      if (!d?.status) throw new Error("API returned status=false");
+      const contextMsg = encodeURIComponent(
+        `Kamu adalah Musika AI — asisten musik personal. Jawab dalam Bahasa Indonesia. Pesan: ${msg}`
+      );
+      const d = await fetchJSON(`https://api.zenzxz.my.id/ai/copilot?message=${contextMsg}&model=gpt-5`, 20000);
       const reply = extractReply(d);
-      if (!reply) throw new Error("No reply text");
+      if (!reply) throw new Error("No reply from zenzxz");
       return reply;
     },
   ];
@@ -98,18 +113,20 @@ router.get("/ai/chat", async (req, res) => {
     }
   }
 
-  // All APIs failed — helpful fallback based on message content
+  // All APIs failed — contextual fallback
   const lowerMsg = msg.toLowerCase();
   let fallbackReply: string;
 
   if (lowerMsg.includes("rekomendasi") || lowerMsg.includes("recommend") || lowerMsg.includes("saran")) {
-    fallbackReply = "Untuk rekomendasi musik yang keren, coba cari di tab **Cari** dengan kata kunci genre favoritmu — contoh: 'lo-fi', 'pop Indonesia', 'K-pop viral', atau 'jazz relax'. Kamu juga bisa cek rekomendasi di halaman Beranda! 🎵";
+    fallbackReply = "Untuk rekomendasi musik, coba cari di tab **Cari** dengan kata kunci genre favoritmu! Kamu juga bisa cek rekomendasi di halaman Beranda. 🎵";
   } else if (lowerMsg.includes("playlist")) {
-    fallbackReply = "Kamu bisa membuat playlist sendiri di tab **Perpustakaan**! Tambahkan lagu favorit dengan menekan tombol ⋯ pada lagu manapun lalu pilih 'Tambah ke Playlist'. 🎶";
-  } else if (lowerMsg.includes("artis") || lowerMsg.includes("artist")) {
-    fallbackReply = "Cari artis favoritmu di tab **Cari**! Kamu bisa filter berdasarkan Spotify, YouTube, Apple Music, atau SoundCloud untuk hasil yang lebih spesifik. 🎤";
+    fallbackReply = "Buat playlist sendiri di tab **Perpustakaan**! Tambahkan lagu dengan menekan tombol ⋯ lalu pilih 'Tambah ke Playlist'. 🎶";
+  } else if (lowerMsg.includes("artis") || lowerMsg.includes("artist") || lowerMsg.includes("penyanyi")) {
+    fallbackReply = "Cari artis favoritmu di tab **Cari**! Filter berdasarkan Spotify, YouTube, Apple Music, atau SoundCloud. 🎤";
+  } else if (lowerMsg.includes("lagu") || lowerMsg.includes("song") || lowerMsg.includes("musik")) {
+    fallbackReply = "Cari lagu di tab **Cari**! Masukkan judul lagu atau artis, dan pilih sumber favoritmu. 🌟";
   } else {
-    fallbackReply = "Maaf, asisten AI sedang sibuk. Sila coba lagi dalam beberapa saat. Sementara itu, jelajahi musik di tab **Cari** atau lihat **Rekomendasi** di Beranda! 🎵";
+    fallbackReply = "Maaf, asisten AI sedang sibuk. Coba lagi dalam beberapa saat. Sementara itu, jelajahi musik di tab **Cari** atau lihat rekomendasi di Beranda! 🎵";
   }
 
   res.json({ success: true, reply: fallbackReply });

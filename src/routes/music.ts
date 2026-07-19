@@ -114,11 +114,24 @@ function cleanTitle(title: string): string {
 // ===== CDN UPLOAD (async, non-blocking) =====
 const cdnCache = new Map<string, string>(); // originalUrl → CDN URL
 
+const CDN_MAX_SIZE = 5 * 1024 * 1024; // 5MB max for CDN upload
+
 async function uploadToCDN(audioUrl: string, slug: string): Promise<string> {
   const cached = cdnCache.get(audioUrl);
   if (cached) return cached;
 
   try {
+    // Download the audio (HEAD first to check size)
+    const headRes = await fetch(audioUrl, {
+      method: "HEAD",
+      signal: AbortSignal.timeout(10000)
+    });
+    const contentLength = parseInt(headRes.headers.get("content-length") || "0");
+    if (contentLength > CDN_MAX_SIZE) {
+      console.warn(`[CDN] File too large (${(contentLength/1024/1024).toFixed(1)}MB > 5MB), skipping CDN upload`);
+      return audioUrl;
+    }
+
     // Download the audio
     const res = await fetch(audioUrl, {
       headers: { "User-Agent": "Mozilla/5.0 musika/1.0", "Range": "bytes=0-" },
@@ -128,25 +141,29 @@ async function uploadToCDN(audioUrl: string, slug: string): Promise<string> {
 
     const buffer = await res.arrayBuffer();
     if (buffer.byteLength < 1000) throw new Error("File too small");
+    if (buffer.byteLength > CDN_MAX_SIZE) throw new Error(`File exceeds CDN limit (${(buffer.byteLength/1024/1024).toFixed(1)}MB > 5MB)`);
 
     const contentType = res.headers.get("content-type") || "audio/mpeg";
     const ext = contentType.includes("aac") ? "aac" : "mp3";
 
-    // Upload to kabox CDN
+    // Upload to izukaprivate CDN
     const form = new FormData();
     const blob = new Blob([buffer], { type: contentType });
     form.append("file", blob, `${slug.slice(0, 40)}.${ext}`);
 
-    const upload = await fetch("https://api.kabox.my.id/api/upload", {
+    const upload = await fetch("https://cdn.izukaprivate.my.id/upload", {
       method: "POST",
-      headers: { "x-expire": "8h" },
       body: form,
-      signal: AbortSignal.timeout(60000)
+      signal: AbortSignal.timeout(120000)
     });
 
-    if (!upload.ok) throw new Error(`CDN upload failed: ${upload.status}`);
+    if (!upload.ok) {
+      const errText = await upload.text();
+      throw new Error(`CDN upload failed: ${upload.status} ${errText}`);
+    }
     const uploadData = await upload.json();
-    const cdnUrl = uploadData?.url || uploadData?.data?.url;
+    const fn = uploadData?.url?.split("/").pop();
+    const cdnUrl = fn ? `https://cdn.izukaprivate.my.id/cdn/${fn}` : null;
 
     if (cdnUrl && typeof cdnUrl === "string" && cdnUrl.startsWith("http")) {
       cdnCache.set(audioUrl, cdnUrl);
