@@ -1,6 +1,6 @@
 /**
  * Database schema setup for NeonDB
- * Replaces Supabase auth.users with a custom users table
+ * All tables use musika_ prefix to match route expectations
  */
 import pkg from 'pg';
 const { Client } = pkg;
@@ -9,8 +9,8 @@ const DATABASE_URL = process.env.DATABASE_URL ||
   'postgresql://neondb_owner:npg_mqNkoeJlS6Z9@ep-crimson-rice-aehes3mk-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
 
 const SQL = `
--- ===== CUSTOM USERS (replaces Supabase auth.users) =====
-CREATE TABLE IF NOT EXISTS public.users (
+-- ===== MUSIKA USERS =====
+CREATE TABLE IF NOT EXISTS public.musika_users (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   username TEXT UNIQUE NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS public.users (
 );
 
 -- ===== OTP CODES =====
-CREATE TABLE IF NOT EXISTS public.otp_codes (
+CREATE TABLE IF NOT EXISTS public.musika_otp_codes (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   email TEXT NOT NULL,
   code TEXT NOT NULL,
@@ -34,12 +34,12 @@ CREATE TABLE IF NOT EXISTS public.otp_codes (
   expires_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_otp_codes_email ON public.otp_codes(email);
-CREATE INDEX IF NOT EXISTS idx_otp_codes_expires ON public.otp_codes(expires_at);
+CREATE INDEX IF NOT EXISTS idx_musika_otp_codes_email ON public.musika_otp_codes(email);
+CREATE INDEX IF NOT EXISTS idx_musika_otp_codes_expires ON public.musika_otp_codes(expires_at);
 
 -- ===== USER PROFILES =====
-CREATE TABLE IF NOT EXISTS public.user_profiles (
-  id UUID REFERENCES public.users(id) ON DELETE CASCADE PRIMARY KEY,
+CREATE TABLE IF NOT EXISTS public.musika_user_profiles (
+  id UUID REFERENCES public.musika_users(id) ON DELETE CASCADE PRIMARY KEY,
   username TEXT UNIQUE,
   bio TEXT DEFAULT '',
   avatar_url TEXT DEFAULT '',
@@ -48,9 +48,9 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
 );
 
 -- ===== PLAYLISTS =====
-CREATE TABLE IF NOT EXISTS public.playlists (
+CREATE TABLE IF NOT EXISTS public.musika_playlists (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.musika_users(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   description TEXT DEFAULT '',
   cover_url TEXT DEFAULT '',
@@ -59,9 +59,9 @@ CREATE TABLE IF NOT EXISTS public.playlists (
 );
 
 -- ===== PLAYLIST SONGS =====
-CREATE TABLE IF NOT EXISTS public.playlist_songs (
+CREATE TABLE IF NOT EXISTS public.musika_playlist_songs (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  playlist_id UUID REFERENCES public.playlists(id) ON DELETE CASCADE NOT NULL,
+  playlist_id UUID REFERENCES public.musika_playlists(id) ON DELETE CASCADE NOT NULL,
   video_id TEXT NOT NULL,
   title TEXT NOT NULL,
   artist TEXT NOT NULL,
@@ -73,9 +73,9 @@ CREATE TABLE IF NOT EXISTS public.playlist_songs (
 );
 
 -- ===== FAVORITES =====
-CREATE TABLE IF NOT EXISTS public.favorites (
+CREATE TABLE IF NOT EXISTS public.musika_favorites (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.musika_users(id) ON DELETE CASCADE NOT NULL,
   video_id TEXT NOT NULL,
   title TEXT NOT NULL,
   artist TEXT NOT NULL,
@@ -88,9 +88,9 @@ CREATE TABLE IF NOT EXISTS public.favorites (
 );
 
 -- ===== PLAY HISTORY =====
-CREATE TABLE IF NOT EXISTS public.play_history (
+CREATE TABLE IF NOT EXISTS public.musika_play_history (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.musika_users(id) ON DELETE CASCADE NOT NULL,
   video_id TEXT NOT NULL,
   title TEXT NOT NULL,
   artist TEXT NOT NULL,
@@ -102,17 +102,17 @@ CREATE TABLE IF NOT EXISTS public.play_history (
 );
 
 -- ===== SEARCH HISTORY =====
-CREATE TABLE IF NOT EXISTS public.search_history (
+CREATE TABLE IF NOT EXISTS public.musika_search_history (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.musika_users(id) ON DELETE CASCADE NOT NULL,
   query TEXT NOT NULL,
   searched_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- ===== USER DOWNLOADS =====
-CREATE TABLE IF NOT EXISTS public.user_downloads (
+CREATE TABLE IF NOT EXISTS public.musika_user_downloads (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.musika_users(id) ON DELETE CASCADE NOT NULL,
   video_id TEXT NOT NULL,
   title TEXT NOT NULL,
   artist TEXT NOT NULL,
@@ -127,20 +127,20 @@ CREATE TABLE IF NOT EXISTS public.user_downloads (
 );
 
 -- Auto-create profile on user insert
-CREATE OR REPLACE FUNCTION public.handle_new_user()
+CREATE OR REPLACE FUNCTION public.musika_handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.user_profiles (id, username, bio, avatar_url)
+  INSERT INTO public.musika_user_profiles (id, username, bio, avatar_url)
   VALUES (NEW.id, NEW.username, NEW.bio, NEW.avatar_url)
   ON CONFLICT (id) DO NOTHING;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-DROP TRIGGER IF EXISTS on_user_created ON public.users;
-CREATE TRIGGER on_user_created
-  AFTER INSERT ON public.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+DROP TRIGGER IF EXISTS on_musika_user_created ON public.musika_users;
+CREATE TRIGGER on_musika_user_created
+  AFTER INSERT ON public.musika_users
+  FOR EACH ROW EXECUTE FUNCTION public.musika_handle_new_user();
 `;
 
 async function setup() {
@@ -153,7 +153,7 @@ async function setup() {
     await client.connect();
     console.log('✓ Connected to NeonDB PostgreSQL');
     await client.query(SQL);
-    console.log('✓ Schema created successfully');
+    console.log('✓ Schema with musika_ prefix created successfully');
   } catch (err) {
     console.error('✗ Error:', err);
     throw err;
