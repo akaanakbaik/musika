@@ -1,0 +1,24 @@
+# pnpm artifacts (migrated to Bun 100%)
+pnpm-lock.yaml
+.pnpm-store
+pnpm-workspace.yaml
+
+# Bun
+bun.lockb
+
+# Vercel
+.vercel
+
+# Environment
+.env*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Build output
+dist/
+build/

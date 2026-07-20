@@ -17,9 +17,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - name: Install pnpm
-        run: npm install -g pnpm
-      - run: pnpm install --filter @workspace/api-server --no-frozen-lockfile --ignore-scripts
+      - run: bun install --ignore-scripts
       - name: TypeScript check
         run: bun x tsc -p tsconfig.json --noEmit
 
@@ -33,9 +31,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - name: Install pnpm
-        run: npm install -g pnpm
-      - run: pnpm install --filter @workspace/api-server --no-frozen-lockfile --ignore-scripts
+      - run: bun install --ignore-scripts
       - name: Build server
         run: bun run build
       - name: Start server & run tests
@@ -69,7 +65,6 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - run: npm install -g pnpm vercel
-      - run: pnpm install --filter @workspace/api-server --no-frozen-lockfile --ignore-scripts
+      - run: bun install --ignore-scripts
       - run: bun run build
       - run: vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
