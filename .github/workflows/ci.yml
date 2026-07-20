@@ -19,6 +19,8 @@ jobs:
           node-version: '22'
       - name: Install pnpm
         run: npm install -g pnpm
+      - name: Approve builds
+        run: pnpm approve-builds esbuild@0.27.7 2>/dev/null || true
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
 
