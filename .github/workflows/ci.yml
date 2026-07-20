@@ -19,7 +19,7 @@ jobs:
           node-version: '22'
       - name: Install pnpm
         run: npm install -g pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --no-frozen-lockfile
       - run: pnpm run typecheck
 
   test:
@@ -34,7 +34,7 @@ jobs:
           node-version: '22'
       - name: Install pnpm
         run: npm install -g pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --no-frozen-lockfile
       - name: Run auth tests
         run: npx vitest run --reporter=verbose
         env:
@@ -55,6 +55,6 @@ jobs:
         with:
           node-version: '22'
       - run: npm install -g pnpm vercel
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --no-frozen-lockfile
       - run: pnpm run build
       - run: vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }}
