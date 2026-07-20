@@ -28,6 +28,9 @@
     "pino-http": "^10",
     "resend": "^6.17.2"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",
     "@types/busboy": "^1.5.4",
