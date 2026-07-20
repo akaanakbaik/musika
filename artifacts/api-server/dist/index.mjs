@@ -61168,6 +61168,18 @@ router5.post("/auth/reset-password", async (req, res) => {
     res.status(500).json({ success: false, error: "Gagal reset password: " + err.message });
   }
 });
+router5.post("/auth/refresh", authMiddleware, async (req, res) => {
+  try {
+    const freshToken = signToken({
+      userId: req.user.userId,
+      email: req.user.email,
+      username: req.user.username
+    });
+    res.json({ success: true, token: freshToken });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 router5.get("/users/:id", async (req, res) => {
   try {
     const result = await query(

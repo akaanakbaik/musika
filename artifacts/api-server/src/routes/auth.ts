@@ -636,6 +636,20 @@ router.post("/auth/reset-password", async (req, res) => {
   }
 });
 
+// ===== REFRESH TOKEN =====
+router.post("/auth/refresh", authMiddleware, async (req, res) => {
+  try {
+    const freshToken = signToken({
+      userId: req.user!.userId,
+      email: req.user!.email,
+      username: req.user!.username
+    });
+    res.json({ success: true, token: freshToken });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // ===== GET PUBLIC USER PROFILE =====
 router.get("/users/:id", async (req, res) => {
   try {
