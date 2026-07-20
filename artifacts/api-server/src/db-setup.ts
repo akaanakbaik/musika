@@ -126,6 +126,29 @@ CREATE TABLE IF NOT EXISTS public.musika_user_downloads (
   UNIQUE(user_id, video_id)
 );
 
+-- ===== OPTIMIZED INDEXES =====
+CREATE INDEX IF NOT EXISTS idx_musika_users_email ON public.musika_users(email);
+CREATE INDEX IF NOT EXISTS idx_musika_users_username ON public.musika_users(username);
+CREATE INDEX IF NOT EXISTS idx_musika_users_musika_id ON public.musika_users(musika_id);
+CREATE INDEX IF NOT EXISTS idx_musika_users_created_at ON public.musika_users(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_musika_playlists_user_id ON public.musika_playlists(user_id);
+CREATE INDEX IF NOT EXISTS idx_musika_playlists_created_at ON public.musika_playlists(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_musika_playlist_songs_playlist ON public.musika_playlist_songs(playlist_id);
+
+CREATE INDEX IF NOT EXISTS idx_musika_favorites_user_id ON public.musika_favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_musika_favorites_liked_at ON public.musika_favorites(liked_at);
+
+CREATE INDEX IF NOT EXISTS idx_musika_play_history_user_id ON public.musika_play_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_musika_play_history_played_at ON public.musika_play_history(played_at);
+
+CREATE INDEX IF NOT EXISTS idx_musika_search_history_user_id ON public.musika_search_history(user_id);
+CREATE INDEX IF NOT EXISTS idx_musika_search_history_searched_at ON public.musika_search_history(searched_at);
+
+CREATE INDEX IF NOT EXISTS idx_musika_downloads_user_id ON public.musika_user_downloads(user_id);
+CREATE INDEX IF NOT EXISTS idx_musika_downloads_downloaded_at ON public.musika_user_downloads(downloaded_at);
+
 -- Auto-create profile on user insert
 CREATE OR REPLACE FUNCTION public.musika_handle_new_user()
 RETURNS TRIGGER AS $$
