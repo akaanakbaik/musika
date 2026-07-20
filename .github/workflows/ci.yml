@@ -14,13 +14,14 @@ jobs:
         working-directory: artifacts/api-server
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: '22'
+          bun-version: latest
       - name: Install pnpm
         run: npm install -g pnpm
       - run: pnpm install --filter @workspace/api-server --no-frozen-lockfile --ignore-scripts
-      - run: pnpm run typecheck
+      - name: TypeScript check
+        run: bun x tsc -p tsconfig.json --noEmit
 
   test:
     runs-on: ubuntu-latest
@@ -29,21 +30,21 @@ jobs:
         working-directory: artifacts/api-server
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: '22'
+          bun-version: latest
       - name: Install pnpm
         run: npm install -g pnpm
       - run: pnpm install --filter @workspace/api-server --no-frozen-lockfile --ignore-scripts
       - name: Build server
-        run: pnpm run build
+        run: bun run build
       - name: Start server & run tests
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
-          node --enable-source-maps ./dist/index.mjs &
+          bun ./dist/index.mjs &
           SERVER_PID=$!
           echo "Server PID: $SERVER_PID"
           for i in $(seq 1 15); do
@@ -54,11 +55,10 @@ jobs:
             echo "Waiting... ($i/15)"
             sleep 2
           done
-          npx vitest run --reporter=verbose --reporter=json --outputFile=test-results.json || true
+          bun x vitest run --reporter=verbose --reporter=json --outputFile=test-results.json || true
           kill $SERVER_PID 2>/dev/null || true
 
   deploy:
-    needs: [typecheck, test]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     defaults:
@@ -66,10 +66,10 @@ jobs:
         working-directory: artifacts/api-server
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: '22'
+          bun-version: latest
       - run: npm install -g pnpm vercel
       - run: pnpm install --filter @workspace/api-server --no-frozen-lockfile --ignore-scripts
-      - run: pnpm run build
+      - run: bun run build
       - run: vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }}

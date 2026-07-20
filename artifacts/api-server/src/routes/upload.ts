@@ -16,7 +16,7 @@ async function safeCDNUpload(buffer: Buffer, filename: string, maxRetries = 3): 
   for (let i = 1; i <= maxRetries; i++) {
     try {
       const formData = new FormData();
-      const blob = new Blob([buffer], { type: "application/octet-stream" });
+      const blob = new Blob([new Uint8Array(buffer)], { type: "application/octet-stream" });
       formData.append("file", blob, filename);
 
       const response = await fetch(CDN_UPLOAD_URL, {
@@ -25,7 +25,7 @@ async function safeCDNUpload(buffer: Buffer, filename: string, maxRetries = 3): 
         signal: AbortSignal.timeout(120000),
       });
 
-      const data = await response.json();
+      const data: any = await response.json();
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
 
       const fn = data.url?.split("/").pop();

@@ -2,7 +2,7 @@
  * Auth API Unit Tests
  * Tests register, login, OTP send/verify, profile update
  */
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 const BASE = process.env.API_BASE || "http://localhost:3001";
 
@@ -23,7 +23,7 @@ describe("Auth API", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(testUser),
     });
-    const data = await res.json();
+    const data: any = await res.json();
     expect(data.success).toBe(true);
     expect(data.user).toBeDefined();
     expect(data.user.email).toBe(testUser.email.toLowerCase());
@@ -40,7 +40,7 @@ describe("Auth API", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(testUser),
     });
-    const data = await res.json();
+    const data: any = await res.json();
     expect(data.success).toBe(false);
     expect(data.error).toBeTruthy();
   });
@@ -52,7 +52,7 @@ describe("Auth API", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: testUser.email, password: testUser.password }),
     });
-    const data = await res.json();
+    const data: any = await res.json();
     expect(data.success).toBe(true);
     expect(data.user).toBeDefined();
     expect(data.token).toBeTruthy();
@@ -66,7 +66,7 @@ describe("Auth API", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: testUser.email, password: "wrongpassword" }),
     });
-    const data = await res.json();
+    const data: any = await res.json();
     expect(data.success).toBe(false);
     expect(data.error).toBeTruthy();
   });
@@ -76,7 +76,7 @@ describe("Auth API", () => {
     const res = await fetch(`${BASE}/api/auth/me`, {
       headers: { Authorization: `Bearer ${authToken}` },
     });
-    const data = await res.json();
+    const data: any = await res.json();
     expect(data.success).toBe(true);
     expect(data.user).toBeDefined();
     expect(data.user.email).toBe(testUser.email.toLowerCase());
@@ -98,7 +98,7 @@ describe("Auth API", () => {
       },
       body: JSON.stringify({ bio: "Test bio updated" }),
     });
-    const data = await res.json();
+    const data: any = await res.json();
     expect(data.success).toBe(true);
     expect(data.user.bio).toBe("Test bio updated");
   });
@@ -106,7 +106,7 @@ describe("Auth API", () => {
   // ── GET USER BY ID ──────────────────────────────────────
   it("GET /api/users/:id - should return public profile", async () => {
     const res = await fetch(`${BASE}/api/users/${userId}`);
-    const data = await res.json();
+    const data: any = await res.json();
     expect(data.success).toBe(true);
     expect(data.profile).toBeDefined();
     expect(data.profile.username).toBe(testUser.username);
@@ -119,7 +119,7 @@ describe("Auth API", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: testUser.email }),
     });
-    const data = await res.json();
+    const data: any = await res.json();
     // OTP may fail if SMTP is not configured, but should at least respond
     expect(data).toBeDefined();
   });
@@ -131,7 +131,7 @@ describe("Auth API", () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: "", password: "", username: "" }),
     });
-    const data = await res.json();
+    const data: any = await res.json();
     expect(data.success).toBe(false);
   });
 

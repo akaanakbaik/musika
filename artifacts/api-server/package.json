@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
-    "build": "node ./build.mjs",
-    "start": "node --enable-source-maps ./dist/index.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "dev": "export NODE_ENV=development && bun run build && bun run start",
+    "build": "bun ./build.mjs",
+    "start": "bun --bun ./dist/index.mjs",
+    "typecheck": "bun x tsc -p tsconfig.json --noEmit",
+    "test": "bun x vitest run --reporter=verbose"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.104.1",
@@ -37,6 +38,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^1.4.13",
     "@types/node": "^25.3.3",
+    "@types/nodemailer": "^8.0.1",
     "@types/pg": "^8.18.0",
     "esbuild": "^0.27.3",
     "esbuild-plugin-pino": "^2.3.3",

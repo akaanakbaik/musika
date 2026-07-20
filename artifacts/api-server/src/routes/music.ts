@@ -161,7 +161,7 @@ async function uploadToCDN(audioUrl: string, slug: string): Promise<string> {
       const errText = await upload.text();
       throw new Error(`CDN upload failed: ${upload.status} ${errText}`);
     }
-    const uploadData = await upload.json();
+    const uploadData: any = await upload.json();
     const fn = uploadData?.url?.split("/").pop();
     const cdnUrl = fn ? `https://cdn.izukaprivate.my.id/cdn/${fn}` : null;
 
@@ -366,9 +366,9 @@ async function searchSpotify(q: string): Promise<Song[]> {
   const apis = [
     // API 1: xrizal (primary)
     async () => {
-      const d = await fetchJSON(`https://api.xrizal.my.id/api/search/spotify-search?query=${encodeURIComponent(q)}`, 15000);
+      const d: any = await fetchJSON(`https://api.xrizal.my.id/api/search/spotify-search?query=${encodeURIComponent(q)}`, 15000);
       if (d?.status && d?.result) {
-        return d.result.slice(0, 20).map((item: any) => ({
+        return (d.result as any[]).slice(0, 20).map((item: any) => ({
           videoId: item.url?.split("/track/")[1]?.split("?")[0] || Math.random().toString(36).slice(2),
           title: item.title || "",
           thumbnail: item.thumb || item.image || "",
@@ -756,9 +756,9 @@ router.get("/music/search", async (req: Request, res: Response) => {
   const { q, source = "all" } = req.query as { q: string; source?: string };
   if (!q?.trim()) return res.status(400).json({ success: false, error: "q is required" });
 
-  const selectedSources = source === "all"
+  const selectedSources: string[] = source === "all"
     ? ["youtube", "spotify", "apple", "soundcloud"]
-    : source.split(",").map(s => s.trim()).filter(Boolean);
+    : source.split(",").map((s: string) => s.trim()).filter(Boolean);
 
   const searchFns: Record<string, () => Promise<Song[]>> = {
     youtube: () => searchYouTube(q),
@@ -771,7 +771,7 @@ router.get("/music/search", async (req: Request, res: Response) => {
   const errors: Record<string, string> = {};
 
   await Promise.allSettled(
-    selectedSources.map(async (src) => {
+    selectedSources.map(async (src: string) => {
       if (searchFns[src]) {
         try {
           results[src] = await searchFns[src]();
@@ -783,13 +783,13 @@ router.get("/music/search", async (req: Request, res: Response) => {
     })
   );
 
-  const totalResults = Object.values(results).reduce((sum, arr) => sum + arr.length, 0);
+  const totalResults = Object.values(results).reduce((sum: number, arr: Song[]) => sum + arr.length, 0);
   res.json({ success: true, results, errors, query: q, total: totalResults });
 });
 
 // ===== PER-SOURCE SEARCH (for real-time progress) =====
 router.get("/music/search/:source", async (req: Request, res: Response) => {
-  const { source } = req.params;
+  const source: string = req.params.source;
   const { q } = req.query as { q: string };
   if (!q?.trim()) return res.status(400).json({ success: false, error: "q is required" });
 

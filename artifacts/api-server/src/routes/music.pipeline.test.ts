@@ -23,7 +23,7 @@ async function testSearch(source: string, q = "test music", label?: string): Pro
 
   try {
     const res = await fetch(`${BASE}/api/music/search?q=${encodeURIComponent(q)}&source=${source}`);
-    const data = await res.json();
+    const data: any = await res.json();
     elapsed = Date.now() - start;
 
     if (data.success && data.results?.[source]?.length > 0) {
@@ -38,7 +38,7 @@ async function testSearch(source: string, q = "test music", label?: string): Pro
 
     // Fallback: try the per-source endpoint
     const res2 = await fetch(`${BASE}/api/music/search/${source}?q=${encodeURIComponent(q)}`);
-    const data2 = await res2.json();
+    const data2: any = await res2.json();
     elapsed = Date.now() - start;
 
     if (data2.success && data2.results?.length > 0) {
@@ -79,7 +79,7 @@ async function testDownload(source: string, urlOrQuery: string, isQuery = false,
       endpoint = `${BASE}/api/music/download?url=${encodeURIComponent(urlOrQuery)}&source=${source}`;
     }
     const res = await fetch(endpoint);
-    const data = await res.json();
+    const data: any = await res.json();
     const elapsed = Date.now() - start;
     const hasUrl = data.success && (data.download_url || data.downloadUrl);
     return {
@@ -151,7 +151,7 @@ describe("Full Music Pipeline — All External APIs", () => {
     it("should return results from all 4 sources", async () => {
       const start = Date.now();
       const res = await fetch(`${BASE}/api/music/search?q=test&source=all`);
-      const data = await res.json();
+      const data: any = await res.json();
       const elapsed = Date.now() - start;
       expect(data.success).toBe(true);
 
@@ -180,7 +180,7 @@ describe("Full Music Pipeline — All External APIs", () => {
     it("should return trending/recommended songs", async () => {
       const start = Date.now();
       const res = await fetch(`${BASE}/api/music/recommendations`);
-      const data = await res.json();
+      const data: any = await res.json();
       const elapsed = Date.now() - start;
       expect(data.success).toBe(true);
       expect(data.results?.length).toBeGreaterThan(0);
@@ -248,7 +248,7 @@ describe("Full Music Pipeline — All External APIs", () => {
   describe("System Health", () => {
     it("API health endpoint should return ok", async () => {
       const res = await fetch(`${BASE}/api/health`);
-      const data = await res.json();
+      const data: any = await res.json();
       expect(data.status).toBe("ok");
       results.push({ name: "API health check", source: "system", status: "pass" });
     });
