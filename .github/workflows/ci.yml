@@ -67,4 +67,6 @@ jobs:
           bun-version: latest
       - run: bun install --ignore-scripts
       - run: bun run build
+      - name: Install Vercel CLI
+        run: npm install -g vercel
       - run: vercel --prod --yes --token=${{ secrets.VERCEL_TOKEN }}

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "build": "bun x tsc --build && bun --filter ./artifacts/** run build",
+    "build": "bun x tsc --build && bun --cwd artifacts/api-server run build",
     "typecheck": "bun x tsc --build"
   },
   "private": true,
