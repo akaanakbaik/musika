@@ -1,7 +1,7 @@
 {
-  "buildCommand": "node ./build.mjs",
+  "buildCommand": "bun ./build.mjs",
   "outputDirectory": "dist",
-  "installCommand": "pnpm install",
+  "installCommand": "npm install -g bun pnpm && pnpm install --no-frozen-lockfile --ignore-scripts",
   "framework": "node",
   "functions": {
     "index.mjs": {
