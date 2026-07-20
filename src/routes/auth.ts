@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import nodemailer from "nodemailer";
@@ -6,79 +7,229 @@ import { signToken, authMiddleware } from "../middlewares/auth";
 
 const router = Router();
 
-const SMTP_USER = process.env.SMTP_USER || "";
-const SMTP_PASS = process.env.SMTP_PASS || "";
-
-if (!SMTP_USER || !SMTP_PASS) {
-  console.warn("[Auth] SMTP credentials not set. Email features (OTP, notifications) will fail.");
-}
-
-let transporter: any = {
-  sendMail: async () => {
-    console.warn("[Auth] SMTP not configured, email not sent");
-    return { accepted: [], rejected: [], messageId: "", envelope: { from: "", to: [] } };
-  }
+// ===== OPTIMAL SMTP CONFIGURATION =====
+const SMTP = {
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT || "587", 10),
+  secure: process.env.SMTP_SECURE === "true" || false,
+  user: process.env.SMTP_USER || "",
+  pass: process.env.SMTP_PASS || "",
+  fromName: process.env.SMTP_FROM_NAME || "Musika",
+  fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "noreply@musika.app",
+  maxRetries: parseInt(process.env.SMTP_MAX_RETRIES || "3", 10),
+  rateLimitPerMinute: parseInt(process.env.SMTP_RATE_LIMIT || "10", 10),
 };
 
-try {
-  if (SMTP_USER && SMTP_PASS) {
-    transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      auth: { user: SMTP_USER, pass: SMTP_PASS },
-    });
+// Auto-detect SMTP provider for optimal defaults
+if (!process.env.SMTP_HOST && !process.env.SMTP_USER) {
+  console.log("[Auth] No SMTP configured. Email features disabled. Set SMTP_USER & SMTP_PASS to enable.");
+} else {
+  if (SMTP.host === "smtp.gmail.com") {
+    console.log(`[Auth] SMTP: Gmail (${SMTP.user.slice(0, 3)}***)`);
+  } else if (SMTP.host?.includes("sendgrid")) {
+    console.log(`[Auth] SMTP: SendGrid (${SMTP.host})`);
+  } else if (SMTP.host?.includes("mailgun")) {
+    console.log(`[Auth] SMTP: Mailgun (${SMTP.host})`);
+  } else {
+    console.log(`[Auth] SMTP: Custom (${SMTP.host}:${SMTP.port})`);
   }
-} catch (err) {
-  console.warn("[Auth] SMTP init failed:", err);
 }
 
+// Create transporter with optimal config
+let transporter: nodemailer.Transporter | null = null;
+const emailQueue: Array<{ mail: nodemailer.SendMailOptions; retries: number }> = [];
+let isProcessing = false;
+
+if (SMTP.user && SMTP.pass) {
+  try {
+    transporter = nodemailer.createTransport({
+      host: SMTP.host,
+      port: SMTP.port,
+      secure: SMTP.secure,
+      auth: { user: SMTP.user, pass: SMTP.pass },
+      pool: true,
+      maxConnections: 3,
+      maxMessages: 50,
+      rateDelta: 1000,
+      rateLimit: 5,
+      tls: {
+        rejectUnauthorized: false,
+        ciphers: "SSLv3",
+      },
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000,
+    });
+
+    // Verify connection (non-blocking)
+    transporter.verify().then(() => {
+      console.log("[Auth] ✓ SMTP connection verified successfully");
+    }).catch((err) => {
+      console.warn("[Auth] ⚠ SMTP verification failed (emails will queue):", err.message);
+    });
+
+    // Graceful pool cleanup on shutdown
+    process.once("SIGTERM", () => {
+      transporter?.close();
+    });
+    process.once("SIGINT", () => {
+      transporter?.close();
+    });
+  } catch (err: any) {
+    console.warn("[Auth] ⚠ SMTP init error:", err.message);
+  }
+}
+
+// Graceful fallback transporter
+function getTransporter(): nodemailer.Transporter {
+  return transporter || ({
+    sendMail: async () => {
+      console.warn("[Auth] SMTP not configured — email not sent");
+      return { accepted: [], rejected: [], messageId: "mock", envelope: { from: "", to: [] } };
+    }
+  } as unknown as nodemailer.Transporter);
+}
+
+// Email queue processor (retry with exponential backoff)
+async function processEmailQueue() {
+  if (isProcessing || emailQueue.length === 0) return;
+  isProcessing = true;
+
+  while (emailQueue.length > 0) {
+    const item = emailQueue.shift();
+    if (!item) continue;
+
+    try {
+      await getTransporter().sendMail(item.mail);
+    } catch (err: any) {
+      if (item.retries < SMTP.maxRetries) {
+        const delay = Math.min(1000 * Math.pow(2, item.retries), 30000);
+        console.warn(`[Auth] Email send failed (attempt ${item.retries + 1}/${SMTP.maxRetries}), retrying in ${delay}ms:`, err.message);
+        await new Promise(r => setTimeout(r, delay));
+        emailQueue.push({ mail: item.mail, retries: item.retries + 1 });
+      } else {
+        console.error("[Auth] Email send failed after max retries:", err.message);
+      }
+    }
+  }
+
+  isProcessing = false;
+}
+
+// Queue email with retry
+function queueEmail(mailOptions: nodemailer.SendMailOptions) {
+  emailQueue.push({ mail: mailOptions, retries: 0 });
+  if (!isProcessing) processEmailQueue();
+}
+
+// ===== HELPERS =====
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
 function detectBrowser(ua: string): string {
-  if (!ua) return "Browser tidak diketahui";
+  if (!ua) return "Unknown Browser";
   if (ua.includes("Chrome") && !ua.includes("Edg") && !ua.includes("OPR")) return "Google Chrome";
   if (ua.includes("Firefox")) return "Mozilla Firefox";
   if (ua.includes("Safari") && !ua.includes("Chrome")) return "Apple Safari";
   if (ua.includes("Edg")) return "Microsoft Edge";
   if (ua.includes("OPR") || ua.includes("Opera")) return "Opera";
-  return "Browser tidak diketahui";
+  return "Unknown Browser";
+}
+
+function detectOS(ua: string): string {
+  if (!ua) return "Unknown";
+  if (ua.includes("Windows NT 10")) return "Windows 10/11";
+  if (ua.includes("Windows NT 6.3")) return "Windows 8.1";
+  if (ua.includes("Windows NT 6.1")) return "Windows 7";
+  if (ua.includes("Mac OS X")) return "macOS";
+  if (ua.includes("Linux") && ua.includes("Android")) return "Android";
+  if (ua.includes("Linux")) return "Linux";
+  if (ua.includes("iPhone") || ua.includes("iPad")) return "iOS";
+  return "Unknown OS";
 }
 
 function detectDevice(ua: string): string {
-  if (!ua) return "Perangkat tidak diketahui";
+  if (!ua) return "Unknown Device";
   if (ua.includes("iPhone")) return "iPhone";
   if (ua.includes("iPad")) return "iPad";
-  if (ua.includes("Android") && ua.includes("Mobile")) return "Android (HP)";
-  if (ua.includes("Android")) return "Android (Tablet)";
+  if (ua.includes("Android") && ua.includes("Mobile")) return "Android Phone";
+  if (ua.includes("Android")) return "Android Tablet";
   if (ua.includes("Windows")) return "Windows PC";
   if (ua.includes("Mac OS X") && !ua.includes("iPhone") && !ua.includes("iPad")) return "Mac";
-  if (ua.includes("Linux")) return "Linux";
-  return "Perangkat tidak diketahui";
+  if (ua.includes("Linux")) return "Linux Desktop";
+  return "Unknown Device";
+}
+
+function maskIP(ip: string): string {
+  if (!ip || ip === "::1" || ip === "127.0.0.1") return "Local Network";
+  const parts = ip.split(".");
+  if (parts.length === 4) return `${parts[0]}.${parts[1]}.${parts[2]}.xxx`;
+  if (ip.includes(":")) return ip.split(":").slice(0, 3).join(":") + ":xxxx";
+  return ip;
 }
 
 function formatTime(date: Date, tz = "Asia/Jakarta"): string {
   return date.toLocaleString("id-ID", {
     timeZone: tz, weekday: "long", year: "numeric", month: "long",
-    day: "numeric", hour: "2-digit", minute: "2-digit", second: "2-digit"
+    day: "numeric", hour: "2-digit", minute: "2-digit",
   }) + " WIB";
 }
 
-// ===== OTP Email Template =====
-function otpEmailHtml(code: string, email: string) {
-  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Verifikasi Musika</title><style>body{background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#e0e0e0;margin:0;padding:40px 16px}.card{max-width:480px;margin:0 auto;background:#141414;border:1px solid #2a2a2a;border-radius:20px;overflow:hidden}.header{background:linear-gradient(135deg,#0f2a1a,#0a1a0f);padding:40px;text-align:center}.brand{font-size:28px;font-weight:800;color:#fff;letter-spacing:-0.5px}.brand span{color:#1DB954}.body{padding:40px}.title{font-size:22px;font-weight:700;color:#fff;margin-bottom:20px}.desc{font-size:14px;color:#666;line-height:1.6;margin-bottom:32px}.otp-box{background:#0f0f0f;border:1px solid #2a2a2a;border-radius:14px;padding:28px;text-align:center;margin-bottom:32px}.otp-code{font-size:44px;font-weight:900;letter-spacing:14px;color:#1DB954;font-variant-numeric:tabular-nums}.otp-expiry{font-size:12px;color:#444;margin-top:14px}.footer{text-align:center;padding:24px 40px;border-top:1px solid #1a1a1a;font-size:12px;color:#3a3a3a}</style></head><body><div class="card"><div class="header"><div class="brand">musi<span>ka</span></div></div><div class="body"><h1 class="title">Verifikasi alamat emailmu</h1><p class="desc">Masukkan kode 6 digit di bawah ini di aplikasi Musika untuk memverifikasi <strong style="color:#888">${email}</strong>.</p><div class="otp-box"><div class="otp-code">${code}</div><div class="otp-expiry">Berlaku selama <strong>10 menit</strong></div></div></div><div class="footer">Email ini dikirim ke ${email}</div></div></body></html>`;
+// ===== EMAIL STYLES =====
+const EMAIL_STYLES = `
+body{margin:0;padding:0;background-color:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+.wrapper{max-width:560px;margin:0 auto;padding:32px 16px}
+.card{background:#141414;border:1px solid #2a2a2a;border-radius:24px;overflow:hidden}
+.header{background:linear-gradient(135deg,#0d2818,#081a0e);padding:36px 40px;text-align:center}
+.logo{font-size:30px;font-weight:900;color:#ffffff;letter-spacing:-0.5px}
+.logo span{color:#1DB954}
+.content{padding:36px 40px}
+h1{font-size:22px;font-weight:700;color:#ffffff;margin:0 0 12px 0;line-height:1.3}
+p{font-size:14px;color:#9ca3af;line-height:1.7;margin:0 0 24px 0}
+strong{color:#d1d5db}
+.code-box{background:#0d0d0d;border:1px solid #2a2a2a;border-radius:16px;padding:28px;text-align:center;margin-bottom:24px}
+.code{font-size:40px;font-weight:900;letter-spacing:12px;color:#1DB954;font-variant-numeric:tabular-nums;font-family:ui-monospace,monospace}
+.expiry{font-size:12px;color:#525252;margin-top:12px}
+.divider{height:1px;background:#2a2a2a;margin:24px 0}
+.info-box{background:#0d0d0d;border:1px solid #2a2a2a;border-radius:12px;padding:20px;margin-bottom:24px}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;font-size:13px}
+.info-label{color:#6b7280}
+.info-value{color:#e5e7eb;font-weight:500}
+.badge{display:inline-flex;align-items:center;gap:6px;background:#0d2818;border:1px solid #1DB95444;border-radius:8px;padding:10px 16px;font-size:13px;color:#1DB954;margin-bottom:24px}
+.footer{padding:24px 40px;border-top:1px solid #2a2a2a;text-align:center}
+.footer-text{font-size:11px;color:#525252;margin:0;line-height:1.6}
+.btn{display:inline-block;background:#1DB954;color:#000000;text-decoration:none;padding:14px 32px;border-radius:12px;font-weight:700;font-size:15px;margin:16px 0 0 0}
+.btn:hover{background:#1ed760}
+.highlight{color:#1DB954;font-weight:600}
+`;
+
+// ===== OTP EMAIL =====
+function otpEmailHtml(code: string, email: string): string {
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Verifikasi Musika</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Verifikasi alamat email</h1><p>Masukkan kode 6 digit di bawah ini di aplikasi <strong>Musika</strong> untuk memverifikasi <span class="highlight">${email}</span>.</p><div class="code-box"><div class="code">${code}</div><div class="expiry">⏱ Kode berlaku <strong>10 menit</strong> &bull; Jangan bagikan kode ini ke siapa pun</div></div><div class="badge">🔒 Aman — Kode ini hanya untuk verifikasi akun Musika kamu</div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta kode ini, abaikan email ini. <br>Tidak perlu merespon email ini.</p></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
 }
 
-function welcomeEmailHtml(email: string, username: string, ip: string, device: string, browser: string) {
+// ===== WELCOME EMAIL =====
+function welcomeEmailHtml(email: string, username: string, ip: string, browser: string): string {
   const time = formatTime(new Date());
-  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Selamat Datang di Musika</title><style>body{background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#e0e0e0;margin:0;padding:40px 16px}.card{max-width:480px;margin:0 auto;background:#141414;border:1px solid #2a2a2a;border-radius:20px}.hero{background:linear-gradient(135deg,#0f2a1a,#0a1a0f);padding:48px 40px;text-align:center}.brand{font-size:28px;font-weight:800;color:#fff}.brand span{color:#1DB954}.body{padding:40px}h1{font-size:24px;color:#fff}.subtitle{font-size:14px;color:#666;margin-bottom:28px}.welcome-box{background:linear-gradient(135deg,#0f2a1a,#0d1f15);border:1px solid #1a3a22;border-radius:14px;padding:24px;margin-bottom:24px;text-align:center}.name{font-size:20px;font-weight:800;color:#1DB954}.info-box{background:#111;border:1px solid #1f1f1f;border-radius:12px;padding:16px 20px;margin-bottom:24px}.info-row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:12px;color:#888}.footer{padding:24px 40px;border-top:1px solid #1a1a1a;text-align:center;font-size:11px;color:#333}</style></head><body><div class="card"><div class="hero"><div class="brand">musi<span>ka</span></div></div><div class="body"><h1>🎉 Selamat bergabung!</h1><p class="subtitle">Akun Musika kamu berhasil dibuat. Kini kamu bisa menikmati jutaan lagu dari berbagai sumber, gratis!</p><div class="welcome-box"><div class="name">Hai, ${username}! 👋</div></div><div class="info-box"><div class="info-row"><span>Email</span><span>${email}</span></div><div class="info-row"><span>Waktu</span><span>${time}</span></div><div class="info-row"><span>Perangkat</span><span>${device}</span></div><div class="info-row"><span>Browser</span><span>${browser}</span></div></div></div><div class="footer">Email ini dikirim ke ${email}</div></div></body></html>`;
+  const maskedIp = maskIP(ip);
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Selamat Datang!</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Selamat bergabung, ${username}! 🎉</h1><p>Akun <strong>Musika</strong> kamu berhasil dibuat. Kamu sekarang bisa menikmati jutaan lagu dari berbagai sumber secara gratis.</p><div class="info-box"><div class="info-row"><span class="info-label">Akun</span><span class="info-value">${email}</span></div><div class="info-row"><span class="info-label">Waktu</span><span class="info-value">${time}</span></div>            <div class="info-row"><span class="info-label">Perangkat</span><span class="info-value">Web Browser</span></div><div class="info-row"><span class="info-label">Browser</span><span class="info-value">${browser}</span></div><div class="info-row"><span class="info-label">IP</span><span class="info-value">${maskedIp}</span></div></div><div class="badge">✅ Akun terverifikasi — Kamu bisa langsung menggunakan Musika</div></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
 }
 
-function loginNotifHtml(email: string, username: string, ip: string, device: string, browser: string) {
+// ===== LOGIN NOTIFICATION EMAIL =====
+function loginNotifHtml(email: string, username: string, ip: string, device: string, browser: string, os: string): string {
   const time = formatTime(new Date());
-  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Login Musika</title><style>body{background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#e0e0e0;margin:0;padding:40px 16px}.card{max-width:480px;margin:0 auto;background:#141414;border:1px solid #2a2a2a;border-radius:20px}.hero{background:linear-gradient(135deg,#1a1a2e,#0a0a1a);padding:40px;text-align:center}.brand{font-size:22px;font-weight:800;color:#fff}.brand span{color:#1DB954}.body{padding:36px}h1{font-size:22px;color:#fff;margin-bottom:10px}.sub{font-size:14px;color:#666;margin-bottom:24px}.login-box{background:#0f1f1a;border:1px solid #1a3a2a;border-radius:14px;padding:20px 24px;margin-bottom:24px}.login-row{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;color:#ccc}.safe-badge{display:flex;align-items:center;gap:8px;background:#0d2a1a;border:1px solid #1DB954;border-radius:10px;padding:10px 16px;margin-bottom:20px;font-size:13px;color:#1DB954}</style></head><body><div class="card"><div class="hero"><div class="brand">musi<span>ka</span></div></div><div class="body"><h1>🎵 Selamat datang kembali, ${username}!</h1><p class="sub">Kami mendeteksi login baru ke akun Musika kamu:</p><div class="login-box"><div class="login-row"><span>Waktu</span><span>${time}</span></div><div class="login-row"><span>Perangkat</span><span>${device}</span></div><div class="login-row"><span>Browser</span><span>${browser}</span></div></div><div class="safe-badge">✅ Ini adalah kamu? Aman.</div></div><div class="footer">Email ini dikirim ke ${email}</div></div></body></html>`;
+  const maskedIp = maskIP(ip);
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Login Baru</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Login baru terdeteksi</h1><p>Ada login baru ke akun <strong>Musika</strong> kamu (<span class="highlight">${email}</span>). Berikut detailnya:</p><div class="info-box"><div class="info-row"><span class="info-label">Waktu</span><span class="info-value">${time}</span></div>            <div class="info-row"><span class="info-label">Perangkat</span><span class="info-value">Web Browser</span></div><div class="info-row"><span class="info-label">Sistem Operasi</span><span class="info-value">${os}</span></div><div class="info-row"><span class="info-label">Browser</span><span class="info-value">${browser}</span></div><div class="info-row"><span class="info-label">IP</span><span class="info-value">${maskedIp}</span></div></div><div class="badge">✅ Jika ini kamu, tidak perlu khawatir</div><p style="font-size:12px;color:#525252">Jika ini bukan kamu, segera ganti password melalui halaman Profile di aplikasi Musika.</p></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
+}
+
+// ===== PASSWORD RESET EMAIL =====
+function resetPasswordHtml(email: string, code: string): string {
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Reset Password</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Atur ulang password</h1><p>Kami menerima permintaan reset password untuk akun <strong>Musika</strong> (<span class="highlight">${email}</span>). Gunakan kode berikut:</p><div class="code-box"><div class="code">${code}</div><div class="expiry">⏱ Kode berlaku <strong>10 menit</strong></div></div><p style="font-size:14px;color:#6b7280">Masukkan kode ini di aplikasi Musika untuk melanjutkan proses reset password.</p><div class="divider"></div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta reset password, abaikan email ini.<br>Akun kamu tetap aman.</p></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
+}
+
+function plainTextFallback(subject: string, body: string): string {
+  return `${subject}\n\n${body}\n\n— Musika`;
 }
 
 // ===== REGISTER =====
@@ -90,9 +241,11 @@ router.post("/auth/register", async (req, res) => {
   if (password.length < 6) {
     return res.status(400).json({ success: false, error: "Password minimal 6 karakter" });
   }
+  if (username.length < 3) {
+    return res.status(400).json({ success: false, error: "Username minimal 3 karakter" });
+  }
 
   try {
-    // Check if email exists
     const existing = await query("SELECT id FROM public.musika_users WHERE email = $1 OR username = $2", [email.toLowerCase(), username]);
     if (existing.rows.length > 0) {
       return res.status(409).json({ success: false, error: "Email atau username sudah terdaftar" });
@@ -107,26 +260,27 @@ router.post("/auth/register", async (req, res) => {
     const user = result.rows[0];
     const token = signToken({ userId: user.id, email: user.email, username: user.username });
 
-    // Send OTP for email verification
+    // Generate & send OTP
     const code = generateOTP();
     await query(
       `INSERT INTO public.musika_otp_codes (email, code, expires_at) VALUES ($1, $2, now() + interval '10 minutes')`,
       [email.toLowerCase(), code]
     );
 
-    // Send OTP email (don't block)
-    transporter.sendMail({
-      from: `"Musika" <${SMTP_USER}>`,
+    queueEmail({
+      from: `"${SMTP.fromName}" <${SMTP.fromEmail}>`,
       to: email,
-      subject: `${code} — Kode verifikasi Musika kamu`,
+      subject: `${code} — Kode verifikasi email Musika`,
       html: otpEmailHtml(code, email),
-    }).catch(e => console.error("OTP email error:", e));
+      text: plainTextFallback("Kode verifikasi Musika", `Kode OTP kamu: ${code}\n\nBerlaku 10 menit. Jangan bagikan kode ini ke siapa pun.`),
+    });
 
     res.json({
       success: true,
       user: { id: user.id, email: user.email, username: user.username, musika_id: user.musika_id },
       token,
       needsOtp: true,
+      message: "Kode verifikasi telah dikirim ke email",
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -158,17 +312,22 @@ router.post("/auth/login", async (req, res) => {
 
     const token = signToken({ userId: user.id, email: user.email, username: user.username });
 
-    // Send login notification (async)
-    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
-    const ua = req.headers["user-agent"] || "";
-    const device = detectDevice(ua);
-    const browser = detectBrowser(ua);
-    transporter.sendMail({
-      from: `"Musika Security" <${SMTP_USER}>`,
-      to: email,
-      subject: `🔐 Login baru ke akun Musika kamu`,
-      html: loginNotifHtml(email, user.username, ip, device, browser),
-    }).catch(() => {});
+    // Send login notification (async) — only if email confirmed
+    if (user.email_confirmed_at) {
+      const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.ip || "";
+      const ua = req.headers["user-agent"] || "";
+      const device = detectDevice(ua);
+      const browser = detectBrowser(ua);
+      const os = detectOS(ua);
+      queueEmail({
+        from: `"${SMTP.fromName} Security" <${SMTP.fromEmail}>`,
+        to: email,
+        subject: `🔐 Login baru ke akun Musika — ${device}`,
+        html: loginNotifHtml(email, user.username, ip, device, browser, os),
+        text: plainTextFallback("Notifikasi Login Musika",
+          `Ada login baru ke akun Musika kamu.\n\nPerangkat: ${device}\nBrowser: ${browser}\nWaktu: ${formatTime(new Date())}\n\nJika ini bukan kamu, segera ganti password.`),
+      });
+    }
 
     res.json({
       success: true,
@@ -185,7 +344,7 @@ router.post("/auth/login", async (req, res) => {
   }
 });
 
-// ===== GET SESSION / PROFILE =====
+// ===== GET SESSION =====
 router.get("/auth/me", authMiddleware, async (req, res) => {
   try {
     const result = await query(
@@ -220,12 +379,8 @@ router.put("/auth/profile", authMiddleware, async (req, res) => {
     updates.push(`updated_at = now()`);
     params.push(req.user!.userId);
 
-    await query(
-      `UPDATE public.musika_users SET ${updates.join(", ")} WHERE id = $${idx}`,
-      params
-    );
+    await query(`UPDATE public.musika_users SET ${updates.join(", ")} WHERE id = $${idx}`, params);
 
-    // Also update user_profiles
     const profileUpdates: string[] = [];
     const profileParams: any[] = [];
     let pidx = 1;
@@ -236,13 +391,9 @@ router.put("/auth/profile", authMiddleware, async (req, res) => {
     if (profileUpdates.length > 0) {
       profileUpdates.push(`updated_at = now()`);
       profileParams.push(req.user!.userId);
-      await query(
-        `UPDATE public.musika_user_profiles SET ${profileUpdates.join(", ")} WHERE id = $${pidx}`,
-        profileParams
-      );
+      await query(`UPDATE public.musika_user_profiles SET ${profileUpdates.join(", ")} WHERE id = $${pidx}`, profileParams);
     }
 
-    // Return updated user
     const result = await query(
       "SELECT id, email, username, avatar_url, bio, musika_id, email_confirmed_at FROM public.musika_users WHERE id = $1",
       [req.user!.userId]
@@ -267,16 +418,17 @@ router.post("/auth/otp/send", async (req, res) => {
       [email.toLowerCase(), code]
     );
 
-    await transporter.sendMail({
-      from: `"Musika" <${SMTP_USER}>`,
+    queueEmail({
+      from: `"${SMTP.fromName}" <${SMTP.fromEmail}>`,
       to: email,
-      subject: `${code} — Kode verifikasi Musika kamu`,
+      subject: `${code} — Kode verifikasi email Musika`,
       html: otpEmailHtml(code, email),
+      text: plainTextFallback("Kode verifikasi Musika", `Kode OTP kamu: ${code}\n\nBerlaku 10 menit.`),
     });
 
-    res.json({ success: true, message: "OTP telah dikirim ke email" });
+    res.json({ success: true, message: "Kode verifikasi telah dikirim ke email" });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: "Gagal mengirim OTP: " + err.message });
+    res.status(500).json({ success: false, error: "Gagal mengirim kode: " + err.message });
   }
 });
 
@@ -292,17 +444,17 @@ router.post("/auth/otp/verify", async (req, res) => {
     );
 
     if (!rows.length) {
-      return res.status(400).json({ success: false, error: "Kode kedaluwarsa atau tidak ditemukan. Minta kode baru." });
+      return res.status(400).json({ success: false, error: "Kode tidak valid atau kedaluwarsa. Silakan minta kode baru." });
     }
 
     const otpRow = rows[0];
 
     if (otpRow.attempts >= 5) {
       await query(`UPDATE public.musika_otp_codes SET used = true WHERE id = $1`, [otpRow.id]);
-      return res.status(429).json({ success: false, error: "Terlalu banyak percobaan. Minta kode baru." });
+      return res.status(429).json({ success: false, error: "Terlalu banyak percobaan. Silakan minta kode baru." });
     }
 
-    if (otpRow.code !== code.trim()) {
+    if (!crypto.timingSafeEqual(Buffer.from(otpRow.code), Buffer.from(code.trim()))) {
       await query(`UPDATE public.musika_otp_codes SET attempts = attempts + 1 WHERE id = $1`, [otpRow.id]);
       const remaining = 4 - otpRow.attempts;
       return res.status(400).json({ success: false, error: `Kode salah. Sisa ${remaining} percobaan.` });
@@ -318,14 +470,17 @@ router.post("/auth/otp/verify", async (req, res) => {
     const browser = detectBrowser(ua);
     const userResult = await query("SELECT username FROM public.musika_users WHERE email = $1", [email.toLowerCase()]);
     const username = userResult.rows[0]?.username || email.split("@")[0];
-    transporter.sendMail({
-      from: `"Musika" <${SMTP_USER}>`,
+
+    queueEmail({
+      from: `"${SMTP.fromName}" <${SMTP.fromEmail}>`,
       to: email,
       subject: `🎵 Selamat bergabung di Musika, ${username}!`,
-      html: welcomeEmailHtml(email, username, ip, device, browser),
-    }).catch(() => {});
+      html: welcomeEmailHtml(email, username, ip, browser),
+      text: plainTextFallback("Selamat bergabung di Musika!",
+        `Hai ${username},\n\nAkun Musika kamu berhasil diverifikasi.\n\nSekarang kamu bisa mencari dan menikmati jutaan lagu!`),
+    });
 
-    res.json({ success: true, isNewUser: true });
+    res.json({ success: true, message: "Email berhasil diverifikasi. Selamat datang di Musika! 🎉" });
   } catch (err: any) {
     res.status(500).json({ success: false, error: "Verifikasi gagal: " + err.message });
   }
@@ -344,16 +499,87 @@ router.post("/auth/otp/resend", async (req, res) => {
       [email.toLowerCase(), code]
     );
 
-    await transporter.sendMail({
-      from: `"Musika" <${SMTP_USER}>`,
+    queueEmail({
+      from: `"${SMTP.fromName}" <${SMTP.fromEmail}>`,
       to: email,
-      subject: `${code} — Kode verifikasi Musika baru`,
+      subject: `${code} — Kode verifikasi baru Musika`,
       html: otpEmailHtml(code, email),
+      text: plainTextFallback("Kode verifikasi baru", `Kode OTP baru kamu: ${code}\n\nBerlaku 10 menit.`),
     });
 
-    res.json({ success: true, message: "OTP baru telah dikirim" });
+    res.json({ success: true, message: "Kode baru telah dikirim ke email" });
   } catch (err: any) {
     res.status(500).json({ success: false, error: "Gagal mengirim ulang: " + err.message });
+  }
+});
+
+// ===== FORGOT PASSWORD (request reset) =====
+router.post("/auth/forgot-password", async (req, res) => {
+  const { email } = req.body;
+  if (!email || !email.includes("@")) return res.status(400).json({ success: false, error: "Email valid diperlukan" });
+
+  const code = generateOTP();
+  try {
+    // Check if user exists (don't reveal for security)
+    const userCheck = await query("SELECT id FROM public.musika_users WHERE email = $1", [email.toLowerCase()]);
+    if (userCheck.rows.length === 0) {
+      return res.json({ success: true, message: "Jika email terdaftar, kode reset akan dikirim" });
+    }
+
+    await query(`DELETE FROM public.musika_otp_codes WHERE email = $1 OR expires_at < now()`, [email.toLowerCase()]);
+    await query(
+      `INSERT INTO public.musika_otp_codes (email, code, expires_at) VALUES ($1, $2, now() + interval '10 minutes')`,
+      [email.toLowerCase(), code]
+    );
+
+    queueEmail({
+      from: `"${SMTP.fromName}" <${SMTP.fromEmail}>`,
+      to: email,
+      subject: `${code} — Kode reset password Musika`,
+      html: resetPasswordHtml(email, code),
+      text: plainTextFallback("Reset Password Musika",
+        `Kode reset password kamu: ${code}\n\nBerlaku 10 menit.\nJika kamu tidak meminta reset, abaikan email ini.`),
+    });
+
+    res.json({ success: true, message: "Jika email terdaftar, kode reset akan dikirim" });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: "Gagal memproses: " + err.message });
+  }
+});
+
+// ===== RESET PASSWORD (with code) =====
+router.post("/auth/reset-password", async (req, res) => {
+  const { email, code, newPassword } = req.body;
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ success: false, error: "Email, kode, dan password baru diperlukan" });
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ success: false, error: "Password minimal 6 karakter" });
+  }
+
+  try {
+    const { rows } = await query(
+      `SELECT * FROM public.musika_otp_codes WHERE email = $1 AND used = false AND expires_at > now() ORDER BY created_at DESC LIMIT 1`,
+      [email.toLowerCase()]
+    );
+
+    if (!rows.length) {
+      return res.status(400).json({ success: false, error: "Kode tidak valid atau kedaluwarsa" });
+    }
+
+    const otpRow = rows[0];
+    if (!crypto.timingSafeEqual(Buffer.from(otpRow.code), Buffer.from(code.trim()))) {
+      await query(`UPDATE public.musika_otp_codes SET attempts = attempts + 1 WHERE id = $1`, [otpRow.id]);
+      return res.status(400).json({ success: false, error: "Kode yang dimasukkan salah" });
+    }
+
+    const hash = await bcrypt.hash(newPassword, 10);
+    await query(`UPDATE public.musika_users SET password_hash = $1, updated_at = now() WHERE email = $2`, [hash, email.toLowerCase()]);
+    await query(`UPDATE public.musika_otp_codes SET used = true WHERE id = $1`, [otpRow.id]);
+
+    res.json({ success: true, message: "Password berhasil diubah. Silakan login dengan password baru." });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: "Gagal reset password: " + err.message });
   }
 });
 
