@@ -78,7 +78,7 @@ async function fetchJSON(url: string, timeoutMs = 15000, retriesOrOpts: number |
 }
 
 // ===== HELPERS =====
-function msToTimestamp(ms: number): string {
+export function msToTimestamp(ms: number): string {
   if (!ms || ms <= 0) return "0:00";
   const totalSec = Math.floor(ms / 1000);
   const h = Math.floor(totalSec / 3600);
@@ -88,18 +88,18 @@ function msToTimestamp(ms: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-function secToTimestamp(sec: number): string {
+export function secToTimestamp(sec: number): string {
   return msToTimestamp(sec * 1000);
 }
 
-function extractArtistFromTitle(title: string): string {
+export function extractArtistFromTitle(title: string): string {
   // Try "Artist - Title" format
   const match = title.match(/^(.+?)\s*[-–—]\s*.+/);
   if (match && match[1].length < 60) return match[1].trim();
   return "YouTube";
 }
 
-function cleanTitle(title: string): string {
+export function cleanTitle(title: string): string {
   return title
     .replace(/\s*\(Official.*?\)/gi, "")
     .replace(/\s*\[Official.*?\]/gi, "")
@@ -789,7 +789,7 @@ router.get("/music/search", async (req: Request, res: Response) => {
 
 // ===== PER-SOURCE SEARCH (for real-time progress) =====
 router.get("/music/search/:source", async (req: Request, res: Response) => {
-  const source: string = req.params.source;
+  const source = req.params.source as string;
   const { q } = req.query as { q: string };
   if (!q?.trim()) return res.status(400).json({ success: false, error: "q is required" });
 

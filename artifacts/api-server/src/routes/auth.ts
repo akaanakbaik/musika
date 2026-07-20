@@ -182,11 +182,11 @@ async function processEmailQueue() {
 }
 
 // ===== HELPERS =====
-function generateOTP() {
+export function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-function detectBrowser(ua: string): string {
+export function detectBrowser(ua: string): string {
   if (!ua) return "Unknown Browser";
   if (ua.includes("Chrome") && !ua.includes("Edg") && !ua.includes("OPR")) return "Google Chrome";
   if (ua.includes("Firefox")) return "Mozilla Firefox";
@@ -196,7 +196,7 @@ function detectBrowser(ua: string): string {
   return "Unknown Browser";
 }
 
-function detectOS(ua: string): string {
+export function detectOS(ua: string): string {
   if (!ua) return "Unknown";
   if (ua.includes("Windows NT 10")) return "Windows 10/11";
   if (ua.includes("Windows NT 6.3")) return "Windows 8.1";
@@ -220,7 +220,7 @@ function detectDevice(ua: string): string {
   return "Unknown Device";
 }
 
-function maskIP(ip: string): string {
+export function maskIP(ip: string): string {
   if (!ip || ip === "::1" || ip === "127.0.0.1") return "Local Network";
   const parts = ip.split(".");
   if (parts.length === 4) return `${parts[0]}.${parts[1]}.${parts[2]}.xxx`;
