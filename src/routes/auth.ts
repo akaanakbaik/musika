@@ -2,12 +2,29 @@ import crypto from "crypto";
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import nodemailer from "nodemailer";
+import { Resend } from "resend";
 import { query } from "../lib/db";
 import { signToken, authMiddleware } from "../middlewares/auth";
 
 const router = Router();
 
-// ===== OPTIMAL SMTP CONFIGURATION =====
+// ===== RESEND CONFIGURATION (Primary) =====
+const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
+let resendClient: Resend | null = null;
+let resendFromEmail = process.env.RESEND_FROM_EMAIL || "";
+
+if (RESEND_API_KEY) {
+  try {
+    resendClient = new Resend(RESEND_API_KEY);
+    const domain = process.env.RESEND_DOMAIN || "email.akadev.me";
+    resendFromEmail = process.env.RESEND_FROM_EMAIL || `noreply@${domain}`;
+    console.log(`[Auth] ✓ Resend SDK ready (from: ${resendFromEmail})`);
+  } catch (err: any) {
+    console.warn("[Auth] ⚠ Resend init error:", err.message);
+  }
+}
+
+// ===== OPTIMAL SMTP CONFIGURATION (Fallback) =====
 const SMTP = {
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: parseInt(process.env.SMTP_PORT || "587", 10),
@@ -20,22 +37,29 @@ const SMTP = {
   rateLimitPerMinute: parseInt(process.env.SMTP_RATE_LIMIT || "10", 10),
 };
 
-// Auto-detect SMTP provider for optimal defaults
+// Auto-detect providers
+if (RESEND_API_KEY) {
+  console.log("[Auth] ✓ Resend API configured as primary email sender");
+}
 if (!process.env.SMTP_HOST && !process.env.SMTP_USER) {
-  console.log("[Auth] No SMTP configured. Email features disabled. Set SMTP_USER & SMTP_PASS to enable.");
+  if (!RESEND_API_KEY) {
+    console.log("[Auth] ⚠ No email provider configured. Set RESEND_API_KEY or SMTP_USER/SMTP_HOST.");
+  }
 } else {
   if (SMTP.host === "smtp.gmail.com") {
-    console.log(`[Auth] SMTP: Gmail (${SMTP.user.slice(0, 3)}***)`);
+    console.log(`[Auth] SMTP fallback: Gmail (${SMTP.user.slice(0, 3)}***)`);
   } else if (SMTP.host?.includes("sendgrid")) {
-    console.log(`[Auth] SMTP: SendGrid (${SMTP.host})`);
+    console.log(`[Auth] SMTP fallback: SendGrid (${SMTP.host})`);
   } else if (SMTP.host?.includes("mailgun")) {
-    console.log(`[Auth] SMTP: Mailgun (${SMTP.host})`);
+    console.log(`[Auth] SMTP fallback: Mailgun (${SMTP.host})`);
+  } else if (SMTP.host?.includes("resend")) {
+    console.log(`[Auth] SMTP fallback: Resend (smtp.resend.com:${SMTP.port})`);
   } else {
-    console.log(`[Auth] SMTP: Custom (${SMTP.host}:${SMTP.port})`);
+    console.log(`[Auth] SMTP fallback: Custom (${SMTP.host}:${SMTP.port})`);
   }
 }
 
-// Create transporter with optimal config
+// ===== NODEMAILER SMTP TRANSPORTER (Fallback) =====
 let transporter: nodemailer.Transporter | null = null;
 const emailQueue: Array<{ mail: nodemailer.SendMailOptions; retries: number }> = [];
 let isProcessing = false;
@@ -91,6 +115,44 @@ function getTransporter(): nodemailer.Transporter {
 }
 
 // Email queue processor (retry with exponential backoff)
+// ===== UNIFIED SEND EMAIL (Resend SDK → Nodemailer SMTP fallback) =====
+async function sendEmail(options: { to: string; subject: string; html: string; text: string }): Promise<any> {
+  // Primary: Try Resend SDK
+  if (resendClient) {
+    try {
+      const from = `"Musika" <${resendFromEmail}>`;
+      const { data, error } = await resendClient.emails.send({
+        from,
+        to: [options.to],
+        subject: options.subject,
+        html: options.html,
+        text: options.text,
+      });
+      if (error) throw new Error(error.message || "Resend API error");
+      return data;
+    } catch (err: any) {
+      console.warn(`[Auth] ⚠ Resend SDK failed, falling back to SMTP:`, err.message);
+    }
+  }
+
+  // Fallback: Queue to nodemailer SMTP
+  if (transporter) {
+    const mailOptions: nodemailer.SendMailOptions = {
+      from: `"${SMTP.fromName}" <${SMTP.fromEmail}>`,
+      to: options.to,
+      subject: options.subject,
+      html: options.html,
+      text: options.text,
+    };
+    emailQueue.push({ mail: mailOptions, retries: 0 });
+    if (!isProcessing) processEmailQueue();
+    return { queued: true };
+  }
+
+  console.warn("[Auth] ⚠ No email provider available. Email NOT sent:", options.subject.slice(0, 50));
+  return { failed: true };
+}
+
 async function processEmailQueue() {
   if (isProcessing || emailQueue.length === 0) return;
   isProcessing = true;
@@ -104,22 +166,16 @@ async function processEmailQueue() {
     } catch (err: any) {
       if (item.retries < SMTP.maxRetries) {
         const delay = Math.min(1000 * Math.pow(2, item.retries), 30000);
-        console.warn(`[Auth] Email send failed (attempt ${item.retries + 1}/${SMTP.maxRetries}), retrying in ${delay}ms:`, err.message);
+        console.warn(`[Auth] Email SMTP failed (attempt ${item.retries + 1}/${SMTP.maxRetries}), retrying in ${delay}ms:`, err.message);
         await new Promise(r => setTimeout(r, delay));
         emailQueue.push({ mail: item.mail, retries: item.retries + 1 });
       } else {
-        console.error("[Auth] Email send failed after max retries:", err.message);
+        console.error("[Auth] Email SMTP failed after max retries:", err.message);
       }
     }
   }
 
   isProcessing = false;
-}
-
-// Queue email with retry
-function queueEmail(mailOptions: nodemailer.SendMailOptions) {
-  emailQueue.push({ mail: mailOptions, retries: 0 });
-  if (!isProcessing) processEmailQueue();
 }
 
 // ===== HELPERS =====
@@ -267,8 +323,7 @@ router.post("/auth/register", async (req, res) => {
       [email.toLowerCase(), code]
     );
 
-    queueEmail({
-      from: `"${SMTP.fromName}" <${SMTP.fromEmail}>`,
+    sendEmail({
       to: email,
       subject: `${code} — Kode verifikasi email Musika`,
       html: otpEmailHtml(code, email),
@@ -319,8 +374,7 @@ router.post("/auth/login", async (req, res) => {
       const device = detectDevice(ua);
       const browser = detectBrowser(ua);
       const os = detectOS(ua);
-      queueEmail({
-        from: `"${SMTP.fromName} Security" <${SMTP.fromEmail}>`,
+      sendEmail({
         to: email,
         subject: `🔐 Login baru ke akun Musika — ${device}`,
         html: loginNotifHtml(email, user.username, ip, device, browser, os),
@@ -418,8 +472,7 @@ router.post("/auth/otp/send", async (req, res) => {
       [email.toLowerCase(), code]
     );
 
-    queueEmail({
-      from: `"${SMTP.fromName}" <${SMTP.fromEmail}>`,
+    sendEmail({
       to: email,
       subject: `${code} — Kode verifikasi email Musika`,
       html: otpEmailHtml(code, email),
@@ -471,8 +524,7 @@ router.post("/auth/otp/verify", async (req, res) => {
     const userResult = await query("SELECT username FROM public.musika_users WHERE email = $1", [email.toLowerCase()]);
     const username = userResult.rows[0]?.username || email.split("@")[0];
 
-    queueEmail({
-      from: `"${SMTP.fromName}" <${SMTP.fromEmail}>`,
+    sendEmail({
       to: email,
       subject: `🎵 Selamat bergabung di Musika, ${username}!`,
       html: welcomeEmailHtml(email, username, ip, browser),
@@ -499,8 +551,7 @@ router.post("/auth/otp/resend", async (req, res) => {
       [email.toLowerCase(), code]
     );
 
-    queueEmail({
-      from: `"${SMTP.fromName}" <${SMTP.fromEmail}>`,
+    sendEmail({
       to: email,
       subject: `${code} — Kode verifikasi baru Musika`,
       html: otpEmailHtml(code, email),
@@ -532,8 +583,7 @@ router.post("/auth/forgot-password", async (req, res) => {
       [email.toLowerCase(), code]
     );
 
-    queueEmail({
-      from: `"${SMTP.fromName}" <${SMTP.fromEmail}>`,
+    sendEmail({
       to: email,
       subject: `${code} — Kode reset password Musika`,
       html: resetPasswordHtml(email, code),
