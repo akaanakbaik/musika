@@ -1,0 +1,23 @@
+{
+  "name": "Musika",
+  "short_name": "Musika",
+  "description": "Music streaming player from YouTube",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#121212",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/akaanakbaik/my-cdn/main/musika/logonobglatar121212.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/akaanakbaik/my-cdn/main/musika/logonobglatar121212.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

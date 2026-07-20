@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Musika</string>
+    <string name="title_activity_main">Musika</string>
+    <string name="package_name">com.musika.app</string>
+    <string name="custom_url_scheme">com.musika.app</string>
+</resources>

@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.aka.musika",
+      "sha256_cert_fingerprints": [
+        "28:4B:AA:35:A7:9E:E3:9A:3D:D1:9B:01:7C:D9:7E:CB:5A:CA:A0:2C:9A:DB:8C:C2:81:55:E1:C0:8E:7C:10:89"
+      ]
+    }
+  }
+]
