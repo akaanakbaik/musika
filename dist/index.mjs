@@ -18972,14 +18972,14 @@ var require_etag = __commonJS({
   "node_modules/.pnpm/etag@1.8.1/node_modules/etag/index.js"(exports, module) {
     "use strict";
     module.exports = etag;
-    var crypto3 = __require("crypto");
+    var crypto4 = __require("crypto");
     var Stats = __require("fs").Stats;
     var toString = Object.prototype.toString;
     function entitytag(entity) {
       if (entity.length === 0) {
         return '"0-2jmj7l5rSw0yVb/vlWAYkK/YBwk"';
       }
-      var hash2 = crypto3.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
+      var hash2 = crypto4.createHash("sha1").update(entity, "utf8").digest("base64").substring(0, 27);
       var len = typeof entity === "string" ? Buffer.byteLength(entity, "utf8") : entity.length;
       return '"' + len.toString(16) + "-" + hash2 + '"';
     }
@@ -20702,27 +20702,27 @@ var require_router = __commonJS({
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var methods = METHODS.map((method) => method.toLowerCase());
-    module.exports = Router8;
+    module.exports = Router9;
     module.exports.Route = Route;
-    function Router8(options) {
-      if (!(this instanceof Router8)) {
-        return new Router8(options);
+    function Router9(options) {
+      if (!(this instanceof Router9)) {
+        return new Router9(options);
       }
       const opts = options || {};
-      function router8(req, res, next) {
-        router8.handle(req, res, next);
+      function router9(req, res, next) {
+        router9.handle(req, res, next);
       }
-      Object.setPrototypeOf(router8, this);
-      router8.caseSensitive = opts.caseSensitive;
-      router8.mergeParams = opts.mergeParams;
-      router8.params = {};
-      router8.strict = opts.strict;
-      router8.stack = [];
-      return router8;
+      Object.setPrototypeOf(router9, this);
+      router9.caseSensitive = opts.caseSensitive;
+      router9.mergeParams = opts.mergeParams;
+      router9.params = {};
+      router9.strict = opts.strict;
+      router9.stack = [];
+      return router9;
     }
-    Router8.prototype = function() {
+    Router9.prototype = function() {
     };
-    Router8.prototype.param = function param(name, fn) {
+    Router9.prototype.param = function param(name, fn) {
       if (!name) {
         throw new TypeError("argument name is required");
       }
@@ -20742,7 +20742,7 @@ var require_router = __commonJS({
       params.push(fn);
       return this;
     };
-    Router8.prototype.handle = function handle(req, res, callback) {
+    Router9.prototype.handle = function handle(req, res, callback) {
       if (!callback) {
         throw new TypeError("argument callback is required");
       }
@@ -20869,7 +20869,7 @@ var require_router = __commonJS({
         }
       }
     };
-    Router8.prototype.use = function use(handler) {
+    Router9.prototype.use = function use(handler) {
       let offset = 0;
       let path = "/";
       if (typeof handler !== "function") {
@@ -20902,7 +20902,7 @@ var require_router = __commonJS({
       }
       return this;
     };
-    Router8.prototype.route = function route(path) {
+    Router9.prototype.route = function route(path) {
       const route2 = new Route(path);
       const layer = new Layer(path, {
         sensitive: this.caseSensitive,
@@ -20917,7 +20917,7 @@ var require_router = __commonJS({
       return route2;
     };
     methods.concat("all").forEach(function(method) {
-      Router8.prototype[method] = function(path) {
+      Router9.prototype[method] = function(path) {
         const route = this.route(path);
         route[method].apply(route, slice.call(arguments, 1));
         return this;
@@ -21100,13 +21100,13 @@ var require_application = __commonJS({
     var compileTrust = require_utils3().compileTrust;
     var resolve = __require("node:path").resolve;
     var once = require_once();
-    var Router8 = require_router();
+    var Router9 = require_router();
     var slice = Array.prototype.slice;
     var flatten = Array.prototype.flat;
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router8 = null;
+      var router9 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -21115,13 +21115,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router8 === null) {
-            router8 = new Router8({
+          if (router9 === null) {
+            router9 = new Router9({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router8;
+          return router9;
         }
       });
     };
@@ -21192,15 +21192,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router8 = this.router;
+      var router9 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router8.use(path, fn2);
+          return router9.use(path, fn2);
         }
         debug(".use app under %s", path);
         fn2.mountpath = path;
         fn2.parent = this;
-        router8.use(path, function mounted_app(req, res, next) {
+        router9.use(path, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -22466,17 +22466,17 @@ var require_content_disposition = __commonJS({
 // node_modules/.pnpm/cookie-signature@1.2.2/node_modules/cookie-signature/index.js
 var require_cookie_signature = __commonJS({
   "node_modules/.pnpm/cookie-signature@1.2.2/node_modules/cookie-signature/index.js"(exports) {
-    var crypto3 = __require("crypto");
+    var crypto4 = __require("crypto");
     exports.sign = function(val, secret) {
       if ("string" != typeof val) throw new TypeError("Cookie value must be provided as a string.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
-      return val + "." + crypto3.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
+      return val + "." + crypto4.createHmac("sha256", secret).update(val).digest("base64").replace(/\=+$/, "");
     };
     exports.unsign = function(input, secret) {
       if ("string" != typeof input) throw new TypeError("Signed cookie string must be provided.");
       if (null == secret) throw new TypeError("Secret key must be provided.");
       var tentativeValue = input.slice(0, input.lastIndexOf(".")), expectedInput = exports.sign(tentativeValue, secret), expectedBuffer = Buffer.from(expectedInput), inputBuffer = Buffer.from(input);
-      return expectedBuffer.length === inputBuffer.length && crypto3.timingSafeEqual(expectedBuffer, inputBuffer) ? tentativeValue : false;
+      return expectedBuffer.length === inputBuffer.length && crypto4.timingSafeEqual(expectedBuffer, inputBuffer) ? tentativeValue : false;
     };
   }
 });
@@ -23785,7 +23785,7 @@ var require_express = __commonJS({
     var EventEmitter = __require("node:events").EventEmitter;
     var mixin = require_merge_descriptors();
     var proto = require_application();
-    var Router8 = require_router();
+    var Router9 = require_router();
     var req = require_request();
     var res = require_response();
     exports = module.exports = createApplication;
@@ -23807,8 +23807,8 @@ var require_express = __commonJS({
     exports.application = proto;
     exports.request = req;
     exports.response = res;
-    exports.Route = Router8.Route;
-    exports.Router = Router8;
+    exports.Route = Router9.Route;
+    exports.Router = Router9;
     exports.json = bodyParser.json;
     exports.raw = bodyParser.raw;
     exports.static = require_serve_static();
@@ -29579,7 +29579,7 @@ var require_ipv6 = __commonJS({
        */
       static fromURL(url) {
         let host;
-        let port2 = null;
+        let port = null;
         let result;
         if (url.indexOf("[") !== -1 && url.indexOf("]:") !== -1) {
           result = constants6.RE_URL_WITH_PORT.exec(url);
@@ -29591,7 +29591,7 @@ var require_ipv6 = __commonJS({
             };
           }
           host = result[1];
-          port2 = result[2];
+          port = result[2];
         } else if (url.indexOf("/") !== -1) {
           url = url.replace(/^[a-z0-9]+:\/\//, "");
           result = constants6.RE_URL.exec(url);
@@ -29606,17 +29606,17 @@ var require_ipv6 = __commonJS({
         } else {
           host = url;
         }
-        if (port2) {
-          port2 = parseInt(port2, 10);
-          if (port2 < 0 || port2 > 65536) {
-            port2 = null;
+        if (port) {
+          port = parseInt(port, 10);
+          if (port < 0 || port > 65536) {
+            port = null;
           }
         } else {
-          port2 = null;
+          port = null;
         }
         return {
           address: new _Address6(host),
-          port: port2
+          port
         };
       }
       /**
@@ -43713,10 +43713,10 @@ var require_disk = __commonJS({
     var fs = __require("fs");
     var os = __require("os");
     var path = __require("path");
-    var crypto3 = __require("crypto");
+    var crypto4 = __require("crypto");
     var mkdirp = require_mkdirp();
     function getFilename(req, file, cb) {
-      crypto3.randomBytes(16, function(err, raw) {
+      crypto4.randomBytes(16, function(err, raw) {
         cb(err, err ? void 0 : raw.toString("hex"));
       });
     }
@@ -47550,14 +47550,14 @@ var require_buffer_equal_constant_time = __commonJS({
 var require_jwa = __commonJS({
   "node_modules/.pnpm/jwa@2.0.1/node_modules/jwa/index.js"(exports, module) {
     var Buffer3 = require_safe_buffer().Buffer;
-    var crypto3 = __require("crypto");
+    var crypto4 = __require("crypto");
     var formatEcdsa = require_ecdsa_sig_formatter();
     var util = __require("util");
     var MSG_INVALID_ALGORITHM = '"%s" is not a valid algorithm.\n  Supported algorithms are:\n  "HS256", "HS384", "HS512", "RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512" and "none".';
     var MSG_INVALID_SECRET = "secret must be a string or buffer";
     var MSG_INVALID_VERIFIER_KEY = "key must be a string or a buffer";
     var MSG_INVALID_SIGNER_KEY = "key must be a string, a buffer or an object";
-    var supportsKeyObjects = typeof crypto3.createPublicKey === "function";
+    var supportsKeyObjects = typeof crypto4.createPublicKey === "function";
     if (supportsKeyObjects) {
       MSG_INVALID_VERIFIER_KEY += " or a KeyObject";
       MSG_INVALID_SECRET += "or a KeyObject";
@@ -47647,17 +47647,17 @@ var require_jwa = __commonJS({
       return function sign(thing, secret) {
         checkIsSecretKey(secret);
         thing = normalizeInput(thing);
-        var hmac = crypto3.createHmac("sha" + bits, secret);
+        var hmac = crypto4.createHmac("sha" + bits, secret);
         var sig = (hmac.update(thing), hmac.digest("base64"));
         return fromBase64(sig);
       };
     }
     var bufferEqual;
-    var timingSafeEqual = "timingSafeEqual" in crypto3 ? function timingSafeEqual2(a, b) {
+    var timingSafeEqual = "timingSafeEqual" in crypto4 ? function timingSafeEqual2(a, b) {
       if (a.byteLength !== b.byteLength) {
         return false;
       }
-      return crypto3.timingSafeEqual(a, b);
+      return crypto4.timingSafeEqual(a, b);
     } : function timingSafeEqual2(a, b) {
       if (!bufferEqual) {
         bufferEqual = require_buffer_equal_constant_time();
@@ -47674,7 +47674,7 @@ var require_jwa = __commonJS({
       return function sign(thing, privateKey) {
         checkIsPrivateKey(privateKey);
         thing = normalizeInput(thing);
-        var signer = crypto3.createSign("RSA-SHA" + bits);
+        var signer = crypto4.createSign("RSA-SHA" + bits);
         var sig = (signer.update(thing), signer.sign(privateKey, "base64"));
         return fromBase64(sig);
       };
@@ -47684,7 +47684,7 @@ var require_jwa = __commonJS({
         checkIsPublicKey(publicKey);
         thing = normalizeInput(thing);
         signature = toBase64(signature);
-        var verifier = crypto3.createVerify("RSA-SHA" + bits);
+        var verifier = crypto4.createVerify("RSA-SHA" + bits);
         verifier.update(thing);
         return verifier.verify(publicKey, signature, "base64");
       };
@@ -47693,11 +47693,11 @@ var require_jwa = __commonJS({
       return function sign(thing, privateKey) {
         checkIsPrivateKey(privateKey);
         thing = normalizeInput(thing);
-        var signer = crypto3.createSign("RSA-SHA" + bits);
+        var signer = crypto4.createSign("RSA-SHA" + bits);
         var sig = (signer.update(thing), signer.sign({
           key: privateKey,
-          padding: crypto3.constants.RSA_PKCS1_PSS_PADDING,
-          saltLength: crypto3.constants.RSA_PSS_SALTLEN_DIGEST
+          padding: crypto4.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto4.constants.RSA_PSS_SALTLEN_DIGEST
         }, "base64"));
         return fromBase64(sig);
       };
@@ -47707,12 +47707,12 @@ var require_jwa = __commonJS({
         checkIsPublicKey(publicKey);
         thing = normalizeInput(thing);
         signature = toBase64(signature);
-        var verifier = crypto3.createVerify("RSA-SHA" + bits);
+        var verifier = crypto4.createVerify("RSA-SHA" + bits);
         verifier.update(thing);
         return verifier.verify({
           key: publicKey,
-          padding: crypto3.constants.RSA_PKCS1_PSS_PADDING,
-          saltLength: crypto3.constants.RSA_PSS_SALTLEN_DIGEST
+          padding: crypto4.constants.RSA_PKCS1_PSS_PADDING,
+          saltLength: crypto4.constants.RSA_PSS_SALTLEN_DIGEST
         }, signature, "base64");
       };
     }
@@ -51056,7 +51056,7 @@ var require_jsonwebtoken = __commonJS({
 });
 
 // src/app.ts
-var import_express8 = __toESM(require_express2(), 1);
+var import_express9 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
@@ -52625,7 +52625,7 @@ var HOUR = 60 * MINUTE;
 var DAY = 24 * HOUR;
 
 // src/routes/index.ts
-var import_express7 = __toESM(require_express2(), 1);
+var import_express8 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
 var import_express = __toESM(require_express2(), 1);
@@ -60605,7 +60605,7 @@ if (RESEND_API_KEY) {
   try {
     resendClient = new Resend(RESEND_API_KEY);
     const domain = process.env.RESEND_DOMAIN || "email.akadev.me";
-    resendFromEmail = process.env.RESEND_FROM_EMAIL || `noreply@${domain}`;
+    resendFromEmail = process.env.RESEND_FROM_EMAIL || `musika@${domain}`;
     console.log(`[Auth] \u2713 Resend SDK ready (from: ${resendFromEmail})`);
   } catch (err) {
     console.warn("[Auth] \u26A0 Resend init error:", err.message);
@@ -60618,7 +60618,7 @@ var SMTP = {
   user: process.env.SMTP_USER || "",
   pass: process.env.SMTP_PASS || "",
   fromName: process.env.SMTP_FROM_NAME || "Musika",
-  fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "noreply@musika.app",
+  fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "musika@musika.app",
   maxRetries: parseInt(process.env.SMTP_MAX_RETRIES || "3", 10),
   rateLimitPerMinute: parseInt(process.env.SMTP_RATE_LIMIT || "10", 10)
 };
@@ -60820,20 +60820,20 @@ strong{color:#d1d5db}
 .highlight{color:#1DB954;font-weight:600}
 `;
 function otpEmailHtml(code, email) {
-  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Verifikasi Musika</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Verifikasi alamat email</h1><p>Masukkan kode 6 digit di bawah ini di aplikasi <strong>Musika</strong> untuk memverifikasi <span class="highlight">${email}</span>.</p><div class="code-box"><div class="code">${code}</div><div class="expiry">\u23F1 Kode berlaku <strong>10 menit</strong> &bull; Jangan bagikan kode ini ke siapa pun</div></div><div class="badge">\u{1F512} Aman \u2014 Kode ini hanya untuk verifikasi akun Musika kamu</div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta kode ini, abaikan email ini. <br>Tidak perlu merespon email ini.</p></div><div class="footer"><p class="footer-text">\xA9 ${(/* @__PURE__ */ new Date()).getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Verifikasi Musika</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Verifikasi alamat email</h1><p>Masukkan kode 6 digit di bawah ini di aplikasi <strong>Musika</strong> untuk memverifikasi <span class="highlight">${email}</span>.</p><div class="code-box"><div class="code">${code}</div><div class="expiry"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><circle cx="7" cy="7" r="6" stroke="#1DB954" stroke-width="1.5"/><path d="M7 4v3.5L9.5 9" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Kode berlaku <strong>10 menit</strong> &bull; Jangan bagikan kode ini ke siapa pun</div></div><div class="badge"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><rect x="3.5" y="6" width="7" height="6" rx="1" stroke="#1DB954" stroke-width="1.5"/><path d="M4.5 6V4.5a2.5 2.5 0 015 0V6" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Aman \u2014 Kode ini hanya untuk verifikasi akun Musika kamu</div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta kode ini, abaikan email ini. <br>Tidak perlu merespon email ini.</p></div><div class="footer"><p class="footer-text">\xA9 ${(/* @__PURE__ */ new Date()).getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
 }
 function welcomeEmailHtml(email, username, ip, browser) {
   const time = formatTime(/* @__PURE__ */ new Date());
   const maskedIp = maskIP(ip);
-  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Selamat Datang!</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Selamat bergabung, ${username}! \u{1F389}</h1><p>Akun <strong>Musika</strong> kamu berhasil dibuat. Kamu sekarang bisa menikmati jutaan lagu dari berbagai sumber secara gratis.</p><div class="info-box"><div class="info-row"><span class="info-label">Akun</span><span class="info-value">${email}</span></div><div class="info-row"><span class="info-label">Waktu</span><span class="info-value">${time}</span></div>            <div class="info-row"><span class="info-label">Perangkat</span><span class="info-value">Web Browser</span></div><div class="info-row"><span class="info-label">Browser</span><span class="info-value">${browser}</span></div><div class="info-row"><span class="info-label">IP</span><span class="info-value">${maskedIp}</span></div></div><div class="badge">\u2705 Akun terverifikasi \u2014 Kamu bisa langsung menggunakan Musika</div></div><div class="footer"><p class="footer-text">\xA9 ${(/* @__PURE__ */ new Date()).getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Selamat Datang!</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Selamat bergabung, ${username}! <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-left:4px"><path d="M9 1l1.5 5 5 .5-3.8 3.2L13 15l-4-2.5L5 15l1.3-5.3L2.5 6.5l5-.5L9 1z" fill="#1DB954"/></svg></h1><p>Akun <strong>Musika</strong> kamu berhasil dibuat. Kamu sekarang bisa menikmati jutaan lagu dari berbagai sumber secara gratis.</p><div class="info-box"><div class="info-row"><span class="info-label">Akun</span><span class="info-value">${email}</span></div><div class="info-row"><span class="info-label">Waktu</span><span class="info-value">${time}</span></div>            <div class="info-row"><span class="info-label">Perangkat</span><span class="info-value">Web Browser</span></div><div class="info-row"><span class="info-label">Browser</span><span class="info-value">${browser}</span></div><div class="info-row"><span class="info-label">IP</span><span class="info-value">${maskedIp}</span></div></div><div class="badge"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><circle cx="8" cy="8" r="7" stroke="#1DB954" stroke-width="1.5"/><path d="M5 8.5l2 2 4-4" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Akun terverifikasi \u2014 Kamu bisa langsung menggunakan Musika</div></div><div class="footer"><p class="footer-text">\xA9 ${(/* @__PURE__ */ new Date()).getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
 }
 function loginNotifHtml(email, username, ip, device, browser, os) {
   const time = formatTime(/* @__PURE__ */ new Date());
   const maskedIp = maskIP(ip);
-  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Login Baru</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Login baru terdeteksi</h1><p>Ada login baru ke akun <strong>Musika</strong> kamu (<span class="highlight">${email}</span>). Berikut detailnya:</p><div class="info-box"><div class="info-row"><span class="info-label">Waktu</span><span class="info-value">${time}</span></div>            <div class="info-row"><span class="info-label">Perangkat</span><span class="info-value">Web Browser</span></div><div class="info-row"><span class="info-label">Sistem Operasi</span><span class="info-value">${os}</span></div><div class="info-row"><span class="info-label">Browser</span><span class="info-value">${browser}</span></div><div class="info-row"><span class="info-label">IP</span><span class="info-value">${maskedIp}</span></div></div><div class="badge">\u2705 Jika ini kamu, tidak perlu khawatir</div><p style="font-size:12px;color:#525252">Jika ini bukan kamu, segera ganti password melalui halaman Profile di aplikasi Musika.</p></div><div class="footer"><p class="footer-text">\xA9 ${(/* @__PURE__ */ new Date()).getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Login Baru</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Login baru terdeteksi</h1><p>Ada login baru ke akun <strong>Musika</strong> kamu (<span class="highlight">${email}</span>). Berikut detailnya:</p><div class="info-box"><div class="info-row"><span class="info-label">Waktu</span><span class="info-value">${time}</span></div>            <div class="info-row"><span class="info-label">Perangkat</span><span class="info-value">Web Browser</span></div><div class="info-row"><span class="info-label">Sistem Operasi</span><span class="info-value">${os}</span></div><div class="info-row"><span class="info-label">Browser</span><span class="info-value">${browser}</span></div><div class="info-row"><span class="info-label">IP</span><span class="info-value">${maskedIp}</span></div></div><div class="badge"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><circle cx="8" cy="8" r="7" stroke="#1DB954" stroke-width="1.5"/><path d="M5 8.5l2 2 4-4" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Jika ini kamu, tidak perlu khawatir</div><p style="font-size:12px;color:#525252">Jika ini bukan kamu, segera ganti password melalui halaman Profile di aplikasi Musika.</p></div><div class="footer"><p class="footer-text">\xA9 ${(/* @__PURE__ */ new Date()).getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
 }
 function resetPasswordHtml(email, code) {
-  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Reset Password</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Atur ulang password</h1><p>Kami menerima permintaan reset password untuk akun <strong>Musika</strong> (<span class="highlight">${email}</span>). Gunakan kode berikut:</p><div class="code-box"><div class="code">${code}</div><div class="expiry">\u23F1 Kode berlaku <strong>10 menit</strong></div></div><p style="font-size:14px;color:#6b7280">Masukkan kode ini di aplikasi Musika untuk melanjutkan proses reset password.</p><div class="divider"></div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta reset password, abaikan email ini.<br>Akun kamu tetap aman.</p></div><div class="footer"><p class="footer-text">\xA9 ${(/* @__PURE__ */ new Date()).getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Reset Password</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Atur ulang password</h1><p>Kami menerima permintaan reset password untuk akun <strong>Musika</strong> (<span class="highlight">${email}</span>). Gunakan kode berikut:</p><div class="code-box"><div class="code">${code}</div><div class="expiry"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><circle cx="7" cy="7" r="6" stroke="#1DB954" stroke-width="1.5"/><path d="M7 4v3.5L9.5 9" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Kode berlaku <strong>10 menit</strong></div></div><p style="font-size:14px;color:#6b7280">Masukkan kode ini di aplikasi Musika untuk melanjutkan proses reset password.</p><div class="divider"></div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta reset password, abaikan email ini.<br>Akun kamu tetap aman.</p></div><div class="footer"><p class="footer-text">\xA9 ${(/* @__PURE__ */ new Date()).getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
 }
 function plainTextFallback(subject, body) {
   return `${subject}
@@ -60916,7 +60916,7 @@ router5.post("/auth/login", async (req, res) => {
       const os = detectOS(ua);
       sendEmail({
         to: email,
-        subject: `\u{1F510} Login baru ke akun Musika \u2014 ${device}`,
+        subject: `Login baru ke akun Musika \u2014 ${device}`,
         html: loginNotifHtml(email, user.username, ip, device, browser, os),
         text: plainTextFallback(
           "Notifikasi Login Musika",
@@ -61068,7 +61068,7 @@ router5.post("/auth/otp/verify", async (req, res) => {
     const username = userResult.rows[0]?.username || email.split("@")[0];
     sendEmail({
       to: email,
-      subject: `\u{1F3B5} Selamat bergabung di Musika, ${username}!`,
+      subject: `Selamat bergabung di Musika, ${username}!`,
       html: welcomeEmailHtml(email, username, ip, browser),
       text: plainTextFallback(
         "Selamat bergabung di Musika!",
@@ -61079,7 +61079,7 @@ Akun Musika kamu berhasil diverifikasi.
 Sekarang kamu bisa mencari dan menikmati jutaan lagu!`
       )
     });
-    res.json({ success: true, message: "Email berhasil diverifikasi. Selamat datang di Musika! \u{1F389}" });
+    res.json({ success: true, message: "Email berhasil diverifikasi. Selamat datang di Musika!" });
   } catch (err) {
     res.status(500).json({ success: false, error: "Verifikasi gagal: " + err.message });
   }
@@ -61506,15 +61506,80 @@ router6.post("/search-history", authMiddleware, async (req, res) => {
 });
 var db_default = router6;
 
-// src/routes/index.ts
+// src/routes/webhook.ts
+var import_express7 = __toESM(require_express2(), 1);
+import crypto3 from "crypto";
 var router7 = (0, import_express7.Router)();
-router7.use(health_default);
-router7.use(auth_default);
-router7.use(music_default);
-router7.use(db_default);
-router7.use(ai_default);
-router7.use(upload_default);
-var routes_default = router7;
+var WEBHOOK_SECRET = process.env.WEBHOOK_SIGNING_SECRET || "";
+function verifyWebhook(payload, sigHeader, msgId, msgTimestamp) {
+  try {
+    if (!sigHeader || !msgId || !msgTimestamp) return false;
+    const secretBytes = Buffer.from(
+      WEBHOOK_SECRET.startsWith("whsec_") ? WEBHOOK_SECRET.slice(6) : WEBHOOK_SECRET,
+      "base64"
+    );
+    const signedContent = `${msgId}.${msgTimestamp}.${payload}`;
+    const expectedSig = crypto3.createHmac("sha256", secretBytes).update(signedContent).digest("base64");
+    const signatures = sigHeader.split(" ").map((s) => s.trim());
+    for (const sig of signatures) {
+      const [_, sigValue] = sig.split(",").find((p) => p.startsWith("v1="))?.split("=") || [];
+      if (sigValue && crypto3.timingSafeEqual(Buffer.from(sigValue), Buffer.from(expectedSig))) {
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+router7.post("/webhook", (req, res) => {
+  const sigHeader = req.headers["svix-signature"];
+  const msgId = req.headers["svix-id"];
+  const msgTimestamp = req.headers["svix-timestamp"];
+  const rawBody = req.rawBody || JSON.stringify(req.body);
+  if (!verifyWebhook(rawBody, sigHeader, msgId, msgTimestamp)) {
+    console.warn("[Webhook] Invalid signature rejected");
+    return res.status(401).json({ success: false, error: "Invalid signature" });
+  }
+  const event = req.body;
+  const eventType = event?.type || "unknown";
+  console.log(`[Webhook] Event received: ${eventType}`);
+  switch (eventType) {
+    case "email.delivered":
+      console.log(`[Webhook] Email delivered: ${event?.data?.email_id} -> ${event?.data?.to}`);
+      break;
+    case "email.bounced":
+      console.warn(`[Webhook] Email bounced: ${event?.data?.email_id} -> ${event?.data?.to}`);
+      break;
+    case "email.complained":
+      console.warn(`[Webhook] Email complained: ${event?.data?.email_id} -> ${event?.data?.to}`);
+      break;
+    case "email.opened":
+      console.log(`[Webhook] Email opened: ${event?.data?.email_id}`);
+      break;
+    case "email.clicked":
+      console.log(`[Webhook] Email clicked: ${event?.data?.email_id}`);
+      break;
+    case "email.sent":
+      console.log(`[Webhook] Email sent: ${event?.data?.email_id}`);
+      break;
+    default:
+      console.log(`[Webhook] Unhandled event type: ${eventType}`);
+  }
+  res.json({ success: true });
+});
+var webhook_default = router7;
+
+// src/routes/index.ts
+var router8 = (0, import_express8.Router)();
+router8.use(health_default);
+router8.use(auth_default);
+router8.use(music_default);
+router8.use(db_default);
+router8.use(ai_default);
+router8.use(upload_default);
+router8.use(webhook_default);
+var routes_default = router8;
 
 // src/lib/logger.ts
 var import_pino = __toESM(require_pino(), 1);
@@ -61535,7 +61600,7 @@ var logger = (0, import_pino.default)({
 });
 
 // src/app.ts
-var app = (0, import_express8.default)();
+var app = (0, import_express9.default)();
 app.set("trust proxy", 1);
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
@@ -61581,31 +61646,44 @@ app.use((0, import_pino_http.default)({
     }
   }
 }));
-app.use(import_express8.default.json({ limit: "2mb" }));
-app.use(import_express8.default.urlencoded({ extended: true, limit: "2mb" }));
+var rawBodySaver = (req, res, buf) => {
+  if (buf && buf.length) {
+    req.rawBody = buf.toString("utf8");
+  }
+};
+app.use(import_express9.default.json({ limit: "2mb", verify: rawBodySaver }));
+app.use(import_express9.default.urlencoded({ extended: true, limit: "2mb" }));
 app.use("/api", globalLimiter);
 app.use("/api/auth", authLimiter);
 app.use("/api", routes_default);
 var app_default = app;
 
 // src/index.ts
-var rawPort = process.env["PORT"];
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided."
-  );
-}
-var port = Number(rawPort);
-if (Number.isNaN(port) || port <= 0) {
-  throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
-app_default.listen(port, (err) => {
-  if (err) {
-    logger.error({ err }, "Error listening on port");
-    process.exit(1);
+var src_default = app_default;
+if (!process.env.VERCEL) {
+  const rawPort = process.env["PORT"];
+  if (!rawPort) {
+    throw new Error(
+      "PORT environment variable is required but was not provided."
+    );
   }
-  logger.info({ port }, "Server listening");
-});
+  const port = Number(rawPort);
+  if (Number.isNaN(port) || port <= 0) {
+    throw new Error(`Invalid PORT value: "${rawPort}"`);
+  }
+  app_default.listen(port, (err) => {
+    if (err) {
+      logger.error({ err }, "Error listening on port");
+      process.exit(1);
+    }
+    logger.info({ port }, "Server listening");
+  });
+} else {
+  logger.info({ vercel: true }, "Running on Vercel serverless");
+}
+export {
+  src_default as default
+};
 /*! Bundled license information:
 
 depd/index.js:

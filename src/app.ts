@@ -55,7 +55,14 @@ app.use(pinoHttp({
   },
 }));
 
-app.use(express.json({ limit: "2mb" }));
+// Capture raw body for webhook signature verification (via verify callback)
+const rawBodySaver = (req: any, res: any, buf: Buffer) => {
+  if (buf && buf.length) {
+    req.rawBody = buf.toString("utf8");
+  }
+};
+
+app.use(express.json({ limit: "2mb", verify: rawBodySaver }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
 app.use("/api", globalLimiter);

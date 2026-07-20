@@ -2,9 +2,9 @@
   "buildCommand": "node ./build.mjs",
   "outputDirectory": "dist",
   "installCommand": "pnpm install",
-  "framework": "other",
+  "framework": "node",
   "functions": {
-    "api/**/*.mjs": {
+    "index.mjs": {
       "maxDuration": 30
     }
   }

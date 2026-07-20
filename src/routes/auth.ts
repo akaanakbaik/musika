@@ -17,7 +17,7 @@ if (RESEND_API_KEY) {
   try {
     resendClient = new Resend(RESEND_API_KEY);
     const domain = process.env.RESEND_DOMAIN || "email.akadev.me";
-    resendFromEmail = process.env.RESEND_FROM_EMAIL || `noreply@${domain}`;
+    resendFromEmail = process.env.RESEND_FROM_EMAIL || `musika@${domain}`;
     console.log(`[Auth] ✓ Resend SDK ready (from: ${resendFromEmail})`);
   } catch (err: any) {
     console.warn("[Auth] ⚠ Resend init error:", err.message);
@@ -32,7 +32,7 @@ const SMTP = {
   user: process.env.SMTP_USER || "",
   pass: process.env.SMTP_PASS || "",
   fromName: process.env.SMTP_FROM_NAME || "Musika",
-  fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "noreply@musika.app",
+  fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || "musika@musika.app",
   maxRetries: parseInt(process.env.SMTP_MAX_RETRIES || "3", 10),
   rateLimitPerMinute: parseInt(process.env.SMTP_RATE_LIMIT || "10", 10),
 };
@@ -262,26 +262,26 @@ strong{color:#d1d5db}
 
 // ===== OTP EMAIL =====
 function otpEmailHtml(code: string, email: string): string {
-  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Verifikasi Musika</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Verifikasi alamat email</h1><p>Masukkan kode 6 digit di bawah ini di aplikasi <strong>Musika</strong> untuk memverifikasi <span class="highlight">${email}</span>.</p><div class="code-box"><div class="code">${code}</div><div class="expiry">⏱ Kode berlaku <strong>10 menit</strong> &bull; Jangan bagikan kode ini ke siapa pun</div></div><div class="badge">🔒 Aman — Kode ini hanya untuk verifikasi akun Musika kamu</div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta kode ini, abaikan email ini. <br>Tidak perlu merespon email ini.</p></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Verifikasi Musika</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Verifikasi alamat email</h1><p>Masukkan kode 6 digit di bawah ini di aplikasi <strong>Musika</strong> untuk memverifikasi <span class="highlight">${email}</span>.</p><div class="code-box"><div class="code">${code}</div><div class="expiry"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><circle cx="7" cy="7" r="6" stroke="#1DB954" stroke-width="1.5"/><path d="M7 4v3.5L9.5 9" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Kode berlaku <strong>10 menit</strong> &bull; Jangan bagikan kode ini ke siapa pun</div></div><div class="badge"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><rect x="3.5" y="6" width="7" height="6" rx="1" stroke="#1DB954" stroke-width="1.5"/><path d="M4.5 6V4.5a2.5 2.5 0 015 0V6" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Aman — Kode ini hanya untuk verifikasi akun Musika kamu</div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta kode ini, abaikan email ini. <br>Tidak perlu merespon email ini.</p></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
 }
 
 // ===== WELCOME EMAIL =====
 function welcomeEmailHtml(email: string, username: string, ip: string, browser: string): string {
   const time = formatTime(new Date());
   const maskedIp = maskIP(ip);
-  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Selamat Datang!</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Selamat bergabung, ${username}! 🎉</h1><p>Akun <strong>Musika</strong> kamu berhasil dibuat. Kamu sekarang bisa menikmati jutaan lagu dari berbagai sumber secara gratis.</p><div class="info-box"><div class="info-row"><span class="info-label">Akun</span><span class="info-value">${email}</span></div><div class="info-row"><span class="info-label">Waktu</span><span class="info-value">${time}</span></div>            <div class="info-row"><span class="info-label">Perangkat</span><span class="info-value">Web Browser</span></div><div class="info-row"><span class="info-label">Browser</span><span class="info-value">${browser}</span></div><div class="info-row"><span class="info-label">IP</span><span class="info-value">${maskedIp}</span></div></div><div class="badge">✅ Akun terverifikasi — Kamu bisa langsung menggunakan Musika</div></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Selamat Datang!</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Selamat bergabung, ${username}! <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-left:4px"><path d="M9 1l1.5 5 5 .5-3.8 3.2L13 15l-4-2.5L5 15l1.3-5.3L2.5 6.5l5-.5L9 1z" fill="#1DB954"/></svg></h1><p>Akun <strong>Musika</strong> kamu berhasil dibuat. Kamu sekarang bisa menikmati jutaan lagu dari berbagai sumber secara gratis.</p><div class="info-box"><div class="info-row"><span class="info-label">Akun</span><span class="info-value">${email}</span></div><div class="info-row"><span class="info-label">Waktu</span><span class="info-value">${time}</span></div>            <div class="info-row"><span class="info-label">Perangkat</span><span class="info-value">Web Browser</span></div><div class="info-row"><span class="info-label">Browser</span><span class="info-value">${browser}</span></div><div class="info-row"><span class="info-label">IP</span><span class="info-value">${maskedIp}</span></div></div><div class="badge"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><circle cx="8" cy="8" r="7" stroke="#1DB954" stroke-width="1.5"/><path d="M5 8.5l2 2 4-4" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Akun terverifikasi — Kamu bisa langsung menggunakan Musika</div></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
 }
 
 // ===== LOGIN NOTIFICATION EMAIL =====
 function loginNotifHtml(email: string, username: string, ip: string, device: string, browser: string, os: string): string {
   const time = formatTime(new Date());
   const maskedIp = maskIP(ip);
-  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Login Baru</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Login baru terdeteksi</h1><p>Ada login baru ke akun <strong>Musika</strong> kamu (<span class="highlight">${email}</span>). Berikut detailnya:</p><div class="info-box"><div class="info-row"><span class="info-label">Waktu</span><span class="info-value">${time}</span></div>            <div class="info-row"><span class="info-label">Perangkat</span><span class="info-value">Web Browser</span></div><div class="info-row"><span class="info-label">Sistem Operasi</span><span class="info-value">${os}</span></div><div class="info-row"><span class="info-label">Browser</span><span class="info-value">${browser}</span></div><div class="info-row"><span class="info-label">IP</span><span class="info-value">${maskedIp}</span></div></div><div class="badge">✅ Jika ini kamu, tidak perlu khawatir</div><p style="font-size:12px;color:#525252">Jika ini bukan kamu, segera ganti password melalui halaman Profile di aplikasi Musika.</p></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Login Baru</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Login baru terdeteksi</h1><p>Ada login baru ke akun <strong>Musika</strong> kamu (<span class="highlight">${email}</span>). Berikut detailnya:</p><div class="info-box"><div class="info-row"><span class="info-label">Waktu</span><span class="info-value">${time}</span></div>            <div class="info-row"><span class="info-label">Perangkat</span><span class="info-value">Web Browser</span></div><div class="info-row"><span class="info-label">Sistem Operasi</span><span class="info-value">${os}</span></div><div class="info-row"><span class="info-label">Browser</span><span class="info-value">${browser}</span></div><div class="info-row"><span class="info-label">IP</span><span class="info-value">${maskedIp}</span></div></div><div class="badge"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><circle cx="8" cy="8" r="7" stroke="#1DB954" stroke-width="1.5"/><path d="M5 8.5l2 2 4-4" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Jika ini kamu, tidak perlu khawatir</div><p style="font-size:12px;color:#525252">Jika ini bukan kamu, segera ganti password melalui halaman Profile di aplikasi Musika.</p></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
 }
 
 // ===== PASSWORD RESET EMAIL =====
 function resetPasswordHtml(email: string, code: string): string {
-  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Reset Password</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Atur ulang password</h1><p>Kami menerima permintaan reset password untuk akun <strong>Musika</strong> (<span class="highlight">${email}</span>). Gunakan kode berikut:</p><div class="code-box"><div class="code">${code}</div><div class="expiry">⏱ Kode berlaku <strong>10 menit</strong></div></div><p style="font-size:14px;color:#6b7280">Masukkan kode ini di aplikasi Musika untuk melanjutkan proses reset password.</p><div class="divider"></div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta reset password, abaikan email ini.<br>Akun kamu tetap aman.</p></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Reset Password</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Atur ulang password</h1><p>Kami menerima permintaan reset password untuk akun <strong>Musika</strong> (<span class="highlight">${email}</span>). Gunakan kode berikut:</p><div class="code-box"><div class="code">${code}</div><div class="expiry"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><circle cx="7" cy="7" r="6" stroke="#1DB954" stroke-width="1.5"/><path d="M7 4v3.5L9.5 9" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Kode berlaku <strong>10 menit</strong></div></div><p style="font-size:14px;color:#6b7280">Masukkan kode ini di aplikasi Musika untuk melanjutkan proses reset password.</p><div class="divider"></div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta reset password, abaikan email ini.<br>Akun kamu tetap aman.</p></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
 }
 
 function plainTextFallback(subject: string, body: string): string {
@@ -376,7 +376,7 @@ router.post("/auth/login", async (req, res) => {
       const os = detectOS(ua);
       sendEmail({
         to: email,
-        subject: `🔐 Login baru ke akun Musika — ${device}`,
+        subject: `Login baru ke akun Musika — ${device}`,
         html: loginNotifHtml(email, user.username, ip, device, browser, os),
         text: plainTextFallback("Notifikasi Login Musika",
           `Ada login baru ke akun Musika kamu.\n\nPerangkat: ${device}\nBrowser: ${browser}\nWaktu: ${formatTime(new Date())}\n\nJika ini bukan kamu, segera ganti password.`),
@@ -526,13 +526,13 @@ router.post("/auth/otp/verify", async (req, res) => {
 
     sendEmail({
       to: email,
-      subject: `🎵 Selamat bergabung di Musika, ${username}!`,
+      subject: `Selamat bergabung di Musika, ${username}!`,
       html: welcomeEmailHtml(email, username, ip, browser),
       text: plainTextFallback("Selamat bergabung di Musika!",
         `Hai ${username},\n\nAkun Musika kamu berhasil diverifikasi.\n\nSekarang kamu bisa mencari dan menikmati jutaan lagu!`),
     });
 
-    res.json({ success: true, message: "Email berhasil diverifikasi. Selamat datang di Musika! 🎉" });
+    res.json({ success: true, message: "Email berhasil diverifikasi. Selamat datang di Musika!" });
   } catch (err: any) {
     res.status(500).json({ success: false, error: "Verifikasi gagal: " + err.message });
   }
