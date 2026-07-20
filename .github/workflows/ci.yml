@@ -38,6 +38,10 @@ jobs:
       - name: Build server
         run: pnpm run build
       - name: Start server & run tests
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
           node --enable-source-maps ./dist/index.mjs &
           SERVER_PID=$!
