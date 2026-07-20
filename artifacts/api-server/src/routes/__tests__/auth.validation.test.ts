@@ -4,7 +4,7 @@ import {
   detectBrowser,
   detectOS,
   maskIP,
-} from "../auth";
+} from "../../lib/auth-helpers";
 
 function validateRegisterFields(body: { email?: string; password?: string; username?: string }): string | null {
   const { email, password, username } = body;
