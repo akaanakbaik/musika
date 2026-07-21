@@ -605,26 +605,28 @@ router.get("/music/search", async (req: Request, res: Response) => {
   const { q, source = "all" } = req.query as { q: string; source?: string };
   if (!q?.trim()) return res.status(400).json({ success: false, error: "q is required" });
 
-  const selectedSources: string[] = source === "all"
+  const results: Record<string, Song[]> = {};
+  const sources = source === "all"
     ? ["youtube", "spotify", "apple", "soundcloud"]
     : source.split(",").map((s: string) => s.trim()).filter(Boolean);
-
-  const searchFns: Record<string, () => Promise<Song[]>> = {
+  
+  const fetchers: Record<string, () => Promise<Song[]>> = {
     youtube: () => searchYouTube(q), spotify: () => searchSpotify(q),
     apple: () => searchAppleMusic(q), soundcloud: () => searchSoundCloud(q)
   };
 
-  const songResults: Record<string, Song[]> = {};
-  await Promise.allSettled(selectedSources.map(async (src: string) => {
-    const sourceKey = src as keyof typeof searchFns;
-    if (searchFns[sourceKey]) {
-      try { songResults[src] = await searchFns[sourceKey](); }
-      catch { songResults[src] = []; }
+  const fns = fetchers as Record<string, () => Promise<Song[]>>;
+  for (let i = 0; i < sources.length; i++) {
+    const src: string = sources[i];
+    const fn = fns[src as string];
+    if (fn) {
+      try { results[src as string] = await fn(); }
+      catch { results[src as string] = []; }
     }
-  }));
+  }
 
-  const totalResults = Object.values(songResults).reduce((sum: number, arr: Song[]) => sum + arr.length, 0);
-  res.json({ success: true, results: songResults, query: q, total: totalResults });
+  const totalResults = Object.values(searchResults).reduce((sum: number, arr: Song[]) => sum + arr.length, 0);
+  res.json({ success: true, results: searchResults, query: q, total: totalResults });
 });
 
 router.get("/music/search/:source", async (req: Request, res: Response) => {
