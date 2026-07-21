@@ -760,20 +760,21 @@ router.get("/music/stream", async (req: Request, res: Response) => {
     if (contentLength) res.setHeader("Content-Length", contentLength);
 
     // Pipe the response body directly for streaming
-    const nodeStream = require('stream') as any;
-    if (typeof upstream.body.pipe === 'function') {
-      // Node.js Readable stream
+    if (typeof (upstream.body as any).pipe === 'function') {
       (upstream.body as any).pipe(res);
     } else {
-      // Web ReadableStream - use text chunks
       const reader = upstream.body.getReader();
-      const pump = async () => {
-        const { done, value } = await reader.read();
-        if (done) { res.end(); return; }
-        res.write(Buffer.from(value));
-        pump();
+      const processStream = async () => {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) { res.end(); return; }
+          res.write(Buffer.from(value));
+        }
       };
-      pump();
+      processStream().catch((err: any) => {
+        console.error("[Stream] Error:", err.message);
+        if (!res.headersSent) res.end();
+      });
     }
   } catch (err: any) {
     console.error("[Stream] Error:", err.message);
