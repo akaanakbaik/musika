@@ -625,12 +625,12 @@ router.get("/music/search", async (req: Request, res: Response) => {
     }
   }
 
-  const totalResults = Object.values(searchResults).reduce((sum: number, arr: Song[]) => sum + arr.length, 0);
-  res.json({ success: true, results: searchResults, query: q, total: totalResults });
+  const totalResults = Object.values(results).reduce((sum: number, arr: Song[]) => sum + arr.length, 0);
+  res.json({ success: true, results, query: q, total: totalResults });
 });
 
 router.get("/music/search/:source", async (req: Request, res: Response) => {
-  const source = req.params.source;
+  const source: string = req.params.source as string;
   const { q } = req.query as { q: string };
   if (!q?.trim()) return res.status(400).json({ success: false, error: "q is required" });
 
@@ -639,10 +639,11 @@ router.get("/music/search/:source", async (req: Request, res: Response) => {
     apple: () => searchAppleMusic(q), soundcloud: () => searchSoundCloud(q)
   };
 
-  if (!searchFns[source]) return res.status(400).json({ success: false, error: `Unknown source: ${source}` });
+  const fn = (searchFns as any)[source];
+  if (!fn) return res.status(400).json({ success: false, error: `Unknown source: ${source}` });
 
   try {
-    const results = await searchFns[source]();
+    const results = await fn();
     res.json({ success: true, source, results, query: q });
   } catch (e: any) {
     res.json({ success: false, source, results: [], error: e.message, query: q });
