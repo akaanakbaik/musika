@@ -255,7 +255,7 @@ async function searchYouTube(q: string): Promise<Song[]> {
     try {
       const results = await api();
       if (results.length > 0) {
-        const filtered = results.filter(s => s.videoId && s.title);
+        const filtered = results.filter((s: Song) => s.videoId && s.title);
         if (filtered.length > 0) {
           cacheSet(searchCache, cacheKey, filtered, 10 * 60 * 1000);
           return filtered;
@@ -357,7 +357,7 @@ async function searchSpotify(q: string): Promise<Song[]> {
     try {
       const results = await api();
       if (results.length > 0) {
-        const filtered = results.filter(s => s.title && s.url);
+        const filtered = results.filter((s: Song) => s.title && s.url);
         if (filtered.length > 0) { cacheSet(searchCache, cacheKey, filtered, 15 * 60 * 1000); return filtered; }
       }
     } catch (err) { console.warn(`[Spotify Search] API failed:`, (err as Error).message); }
@@ -465,7 +465,7 @@ async function searchAppleMusic(q: string): Promise<Song[]> {
     try {
       const results = await api();
       if (results.length > 0) {
-        const filtered = results.filter(s => s.title && s.url);
+        const filtered = results.filter((s: Song) => s.title && s.url);
         if (filtered.length > 0) { cacheSet(searchCache, cacheKey, filtered, 15 * 60 * 1000); return filtered; }
       }
     } catch (err) { console.warn(`[Apple Search] API failed:`, (err as Error).message); }
@@ -526,7 +526,7 @@ async function searchSoundCloud(q: string): Promise<Song[]> {
     try {
       const results = await api();
       if (results.length > 0) {
-        const filtered = results.filter(s => s.title && s.url);
+        const filtered = results.filter((s: Song) => s.title && s.url);
         if (filtered.length > 0) { cacheSet(searchCache, cacheKey, filtered, 15 * 60 * 1000); return filtered; }
       }
     } catch (err) { console.warn(`[SC Search] API failed:`, (err as Error).message); }
@@ -614,16 +614,17 @@ router.get("/music/search", async (req: Request, res: Response) => {
     apple: () => searchAppleMusic(q), soundcloud: () => searchSoundCloud(q)
   };
 
-  const results: Record<string, Song[]> = {};
+  const songResults: Record<string, Song[]> = {};
   await Promise.allSettled(selectedSources.map(async (src: string) => {
-    if (searchFns[src]) {
-      try { results[src] = await searchFns[src](); }
-      catch { results[src] = []; }
+    const sourceKey = src as keyof typeof searchFns;
+    if (searchFns[sourceKey]) {
+      try { songResults[src] = await searchFns[sourceKey](); }
+      catch { songResults[src] = []; }
     }
   }));
 
-  const totalResults = Object.values(results).reduce((sum: number, arr: Song[]) => sum + arr.length, 0);
-  res.json({ success: true, results, query: q, total: totalResults });
+  const totalResults = Object.values(songResults).reduce((sum: number, arr: Song[]) => sum + arr.length, 0);
+  res.json({ success: true, results: songResults, query: q, total: totalResults });
 });
 
 router.get("/music/search/:source", async (req: Request, res: Response) => {
@@ -758,13 +759,22 @@ router.get("/music/stream", async (req: Request, res: Response) => {
     }
     if (contentLength) res.setHeader("Content-Length", contentLength);
 
-    const reader = upstream.body.getReader();
-    const writable = new WritableStream({
-      write(chunk) { res.write(chunk); },
-      close() { res.end(); },
-      abort(err) { console.error("[Stream] Aborted:", err); res.end(); }
-    });
-    await reader.pipeTo(writable);
+    // Pipe the response body directly for streaming
+    const nodeStream = require('stream') as any;
+    if (typeof upstream.body.pipe === 'function') {
+      // Node.js Readable stream
+      (upstream.body as any).pipe(res);
+    } else {
+      // Web ReadableStream - use text chunks
+      const reader = upstream.body.getReader();
+      const pump = async () => {
+        const { done, value } = await reader.read();
+        if (done) { res.end(); return; }
+        res.write(Buffer.from(value));
+        pump();
+      };
+      pump();
+    }
   } catch (err: any) {
     console.error("[Stream] Error:", err.message);
     if (!res.headersSent) res.status(502).json({ error: "Stream failed" });
