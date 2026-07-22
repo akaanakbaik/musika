@@ -6,7 +6,6 @@ import { Resend } from "resend";
 import { query } from "../lib/db";
 import { signToken, authMiddleware } from "../middlewares/auth";
 import {
-  generateOTP,
   detectBrowser,
   detectOS,
   maskIP,
@@ -187,7 +186,11 @@ async function processEmailQueue() {
   isProcessing = false;
 }
 
-// ===== HELPERS =====
+// Generate 5-digit OTP
+function generateOTP(): string {
+  return Math.floor(10000 + Math.random() * 90000).toString();
+}
+
 function detectDevice(ua: string): string {
   if (!ua) return "Unknown Device";
   if (ua.includes("iPhone")) return "iPhone";
@@ -237,7 +240,7 @@ strong{color:#d1d5db}
 
 // ===== OTP EMAIL =====
 function otpEmailHtml(code: string, email: string): string {
-  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Verifikasi Musika</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><img src="${LOGO_URL}" alt="Musika" width="64" height="64" style="display:block;margin:0 auto 10px auto;border-radius:16px"/><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Verifikasi alamat email</h1><p>Masukkan kode 6 digit di bawah ini di aplikasi <strong>Musika</strong> untuk memverifikasi <span class="highlight">${email}</span>.</p><div class="code-box"><div class="code">${code}</div><div class="expiry"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><circle cx="7" cy="7" r="6" stroke="#1DB954" stroke-width="1.5"/><path d="M7 4v3.5L9.5 9" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Kode berlaku <strong>10 menit</strong> &bull; Jangan bagikan kode ini ke siapa pun</div></div><div class="badge"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><rect x="3.5" y="6" width="7" height="6" rx="1" stroke="#1DB954" stroke-width="1.5"/><path d="M4.5 6V4.5a2.5 2.5 0 015 0V6" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Aman — Kode ini hanya untuk verifikasi akun Musika kamu</div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta kode ini, abaikan email ini. <br>Tidak perlu merespon email ini.</p></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Verifikasi Musika</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><img src="${LOGO_URL}" alt="Musika" width="64" height="64" style="display:block;margin:0 auto 10px auto;border-radius:16px"/><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Verifikasi alamat email</h1><p>Masukkan kode 6 digit di bawah ini di aplikasi <strong>Musika</strong> untuk memverifikasi <span class="highlight">${email}</span>.</p><div class="code-box"><div class="code">${code}</div><div class="expiry"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><circle cx="7" cy="7" r="6" stroke="#1DB954" stroke-width="1.5"/><path d="M7 4v3.5L9.5 9" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Kode berlaku <strong>5 menit</strong> &bull; Jangan bagikan kode ini ke siapa pun</div></div><div class="badge"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><rect x="3.5" y="6" width="7" height="6" rx="1" stroke="#1DB954" stroke-width="1.5"/><path d="M4.5 6V4.5a2.5 2.5 0 015 0V6" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Aman — Kode ini hanya untuk verifikasi akun Musika kamu</div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta kode ini, abaikan email ini. <br>Tidak perlu merespon email ini.</p></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
 }
 
 // ===== WELCOME EMAIL =====
@@ -256,7 +259,7 @@ function loginNotifHtml(email: string, username: string, ip: string, device: str
 
 // ===== PASSWORD RESET EMAIL =====
 function resetPasswordHtml(email: string, code: string): string {
-  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Reset Password</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><img src="${LOGO_URL}" alt="Musika" width="64" height="64" style="display:block;margin:0 auto 10px auto;border-radius:16px"/><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Atur ulang password</h1><p>Kami menerima permintaan reset password untuk akun <strong>Musika</strong> (<span class="highlight">${email}</span>). Gunakan kode berikut:</p><div class="code-box"><div class="code">${code}</div><div class="expiry"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><circle cx="7" cy="7" r="6" stroke="#1DB954" stroke-width="1.5"/><path d="M7 4v3.5L9.5 9" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Kode berlaku <strong>10 menit</strong></div></div><p style="font-size:14px;color:#6b7280">Masukkan kode ini di aplikasi Musika untuk melanjutkan proses reset password.</p><div class="divider"></div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta reset password, abaikan email ini.<br>Akun kamu tetap aman.</p></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Reset Password</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><img src="${LOGO_URL}" alt="Musika" width="64" height="64" style="display:block;margin:0 auto 10px auto;border-radius:16px"/><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Atur ulang password</h1><p>Kami menerima permintaan reset password untuk akun <strong>Musika</strong> (<span class="highlight">${email}</span>). Gunakan kode berikut:</p><div class="code-box"><div class="code">${code}</div><div class="expiry"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><circle cx="7" cy="7" r="6" stroke="#1DB954" stroke-width="1.5"/><path d="M7 4v3.5L9.5 9" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Kode berlaku <strong>5 menit</strong></div></div><p style="font-size:14px;color:#6b7280">Masukkan kode ini di aplikasi Musika untuk melanjutkan proses reset password.</p><div class="divider"></div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta reset password, abaikan email ini.<br>Akun kamu tetap aman.</p></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
 }
 
 function plainTextFallback(subject: string, body: string): string {
@@ -294,7 +297,7 @@ router.post("/auth/register", async (req, res) => {
     // Generate & send OTP
     const code = generateOTP();
     await query(
-      `INSERT INTO public.musika_otp_codes (email, code, expires_at) VALUES ($1, $2, now() + interval '10 minutes')`,
+      `INSERT INTO public.musika_otp_codes (email, code, expires_at) VALUES ($1, $2, now() + interval '5 minutes')`,
       [email.toLowerCase(), code]
     );
 
@@ -302,7 +305,7 @@ router.post("/auth/register", async (req, res) => {
       to: email,
       subject: `${code} — Kode verifikasi email Musika`,
       html: otpEmailHtml(code, email),
-      text: plainTextFallback("Kode verifikasi Musika", `Kode OTP kamu: ${code}\n\nBerlaku 10 menit. Jangan bagikan kode ini ke siapa pun.`),
+      text: plainTextFallback("Kode verifikasi Musika", `Kode OTP kamu: ${code}\n\nBerlaku 5 menit. Jangan bagikan kode ini ke siapa pun.`),
     });
 
     res.json({
@@ -443,7 +446,7 @@ router.post("/auth/otp/send", async (req, res) => {
   try {
     await query(`DELETE FROM public.musika_otp_codes WHERE email = $1 OR expires_at < now()`, [email.toLowerCase()]);
     await query(
-      `INSERT INTO public.musika_otp_codes (email, code, expires_at) VALUES ($1, $2, now() + interval '10 minutes')`,
+      `INSERT INTO public.musika_otp_codes (email, code, expires_at) VALUES ($1, $2, now() + interval '5 minutes')`,
       [email.toLowerCase(), code]
     );
 
@@ -451,7 +454,7 @@ router.post("/auth/otp/send", async (req, res) => {
       to: email,
       subject: `${code} — Kode verifikasi email Musika`,
       html: otpEmailHtml(code, email),
-      text: plainTextFallback("Kode verifikasi Musika", `Kode OTP kamu: ${code}\n\nBerlaku 10 menit.`),
+      text: plainTextFallback("Kode verifikasi Musika", `Kode OTP kamu: ${code}\n\nBerlaku 5 menit.`),
     });
 
     res.json({ success: true, message: "Kode verifikasi telah dikirim ke email" });
@@ -522,7 +525,7 @@ router.post("/auth/otp/resend", async (req, res) => {
   try {
     await query(`DELETE FROM public.musika_otp_codes WHERE email = $1 OR expires_at < now()`, [email.toLowerCase()]);
     await query(
-      `INSERT INTO public.musika_otp_codes (email, code, expires_at) VALUES ($1, $2, now() + interval '10 minutes')`,
+      `INSERT INTO public.musika_otp_codes (email, code, expires_at) VALUES ($1, $2, now() + interval '5 minutes')`,
       [email.toLowerCase(), code]
     );
 
@@ -530,7 +533,7 @@ router.post("/auth/otp/resend", async (req, res) => {
       to: email,
       subject: `${code} — Kode verifikasi baru Musika`,
       html: otpEmailHtml(code, email),
-      text: plainTextFallback("Kode verifikasi baru", `Kode OTP baru kamu: ${code}\n\nBerlaku 10 menit.`),
+      text: plainTextFallback("Kode verifikasi baru", `Kode OTP baru kamu: ${code}\n\nBerlaku 5 menit.`),
     });
 
     res.json({ success: true, message: "Kode baru telah dikirim ke email" });
@@ -554,7 +557,7 @@ router.post("/auth/forgot-password", async (req, res) => {
 
     await query(`DELETE FROM public.musika_otp_codes WHERE email = $1 OR expires_at < now()`, [email.toLowerCase()]);
     await query(
-      `INSERT INTO public.musika_otp_codes (email, code, expires_at) VALUES ($1, $2, now() + interval '10 minutes')`,
+      `INSERT INTO public.musika_otp_codes (email, code, expires_at) VALUES ($1, $2, now() + interval '5 minutes')`,
       [email.toLowerCase(), code]
     );
 
@@ -563,7 +566,7 @@ router.post("/auth/forgot-password", async (req, res) => {
       subject: `${code} — Kode reset password Musika`,
       html: resetPasswordHtml(email, code),
       text: plainTextFallback("Reset Password Musika",
-        `Kode reset password kamu: ${code}\n\nBerlaku 10 menit.\nJika kamu tidak meminta reset, abaikan email ini.`),
+        `Kode reset password kamu: ${code}\n\nBerlaku 5 menit.\nJika kamu tidak meminta reset, abaikan email ini.`),
     });
 
     res.json({ success: true, message: "Jika email terdaftar, kode reset akan dikirim" });
