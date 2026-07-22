@@ -11,17 +11,13 @@
     "test": "bun x vitest run --reporter=verbose"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.104.1",
     "bcryptjs": "^3.0.3",
     "busboy": "^1.6.0",
-    "cookie-parser": "^1.4.7",
     "cors": "^2",
-    "drizzle-orm": "^0.45.2",
     "express": "^5",
     "express-rate-limit": "^8.4.1",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
-    "multer": "^1.4.5-lts.2",
     "node-fetch": "^3.3.2",
     "nodemailer": "^8.0.6",
     "pg": "^8.20.0",

@@ -1,2 +1,6 @@
 .vercel
 .env*
+
+# Utility scripts (contain local credentials, not for production)
+src/db-reset.ts
+run-tests.sh
