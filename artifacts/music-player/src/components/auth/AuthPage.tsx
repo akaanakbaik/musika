@@ -5,7 +5,7 @@ import { toast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
 const LOGO = "https://raw.githubusercontent.com/akaanakbaik/my-cdn/main/musika/logonobglatar121212.png";
-const OTP_LEN = 6;
+const OTP_LEN = 5;
 const RESEND_SECS = 60;
 
 type Step = "login" | "register" | "otp";
@@ -149,7 +149,7 @@ export default function AuthPage() {
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpComplete) { toast({ title: "Enter all 6 digits", variant: "destructive" }); return; }
+    if (!otpComplete) { toast({ title: "Enter all 5 digits", variant: "destructive" }); return; }
     setLoading(true);
     const { error } = await verifyOTP(email.trim(), otp);
     setLoading(false);

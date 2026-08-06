@@ -49,7 +49,7 @@ const fallbackSongs: Song[] = [
   { videoId: "YQHsXMglC9A", title: "Adele - Hello", thumbnail: "https://i.ytimg.com/vi/YQHsXMglC9A/hqdefault.jpg", duration: "4:55", url: "https://youtu.be/YQHsXMglC9A", source: "youtube", artist: "Adele" },
   { videoId: "hT_nvWreIhg", title: "One Dance", thumbnail: "https://i.ytimg.com/vi/hT_nvWreIhg/hqdefault.jpg", duration: "2:54", url: "https://youtu.be/hT_nvWreIhg", source: "youtube", artist: "Drake" },
   { videoId: "fRh_vgS2dFE", title: "7 Rings", thumbnail: "https://i.ytimg.com/vi/fRh_vgS2dFE/hqdefault.jpg", duration: "2:58", url: "https://youtu.be/fRh_vgS2dFE", source: "youtube", artist: "Ariana Grande" },
-  { videoId: "JGwWNGJdvx8", title: "Perfect", thumbnail: "https://i.ytimg.com/vi/2Vv-BfVoq4g/hqdefault.jpg", duration: "4:23", url: "https://youtu.be/2Vv-BfVoq4g", source: "youtube", artist: "Ed Sheeran" },
+  { videoId: "2Vv-BfVoq4g", title: "Perfect", thumbnail: "https://i.ytimg.com/vi/2Vv-BfVoq4g/hqdefault.jpg", duration: "4:23", url: "https://youtu.be/2Vv-BfVoq4g", source: "youtube", artist: "Ed Sheeran" },
   { videoId: "09R8_2nJtjg", title: "Sugar", thumbnail: "https://i.ytimg.com/vi/09R8_2nJtjg/hqdefault.jpg", duration: "4:20", url: "https://youtu.be/09R8_2nJtjg", source: "youtube", artist: "Maroon 5" },
   { videoId: "HP-MbfHFUqs", title: "Someone Like You", thumbnail: "https://i.ytimg.com/vi/HP-MbfHFUqs/hqdefault.jpg", duration: "4:47", url: "https://youtu.be/HP-MbfHFUqs", source: "youtube", artist: "Adele" },
   { videoId: "CevxZvSJLk8", title: "Roar", thumbnail: "https://i.ytimg.com/vi/CevxZvSJLk8/hqdefault.jpg", duration: "4:30", url: "https://youtu.be/CevxZvSJLk8", source: "youtube", artist: "Katy Perry" },

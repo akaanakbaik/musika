@@ -2,14 +2,21 @@ import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const isProduction = process.env.NODE_ENV === "production";
 
 if (!JWT_SECRET) {
+  if (isProduction) {
+    throw new Error(
+      "[Auth] FATAL: JWT_SECRET is required in production. Set JWT_SECRET to a random 32+ char string (e.g. `openssl rand -base64 32`).",
+    );
+  }
   console.warn("[Auth] WARNING: JWT_SECRET environment variable not set!");
   console.warn("[Auth] Using INSECURE default fallback. Set JWT_SECRET to a random 32+ char string in production.");
   console.warn("[Auth] Example: export JWT_SECRET=$(openssl rand -base64 32)");
 }
 
-const JWT_SECRET_FALLBACK = JWT_SECRET || "musika-neon-jwt-secret-2025";
+// Dev/test-only fallback. Never used in production (see guard above).
+const JWT_SECRET_FALLBACK = JWT_SECRET || "musika-dev-jwt-secret---change-me";
 const JWT_EXPIRES = "30d";
 
 export interface JwtPayload {

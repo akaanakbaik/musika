@@ -16,16 +16,10 @@ app.use(helmet({
 }));
 
 app.use(cors({
-  origin: (origin, cb) => {
-    const allowed = [
-      /localhost/,
-      /\.replit\.dev$/,
-      /\.repl\.co$/,
-      /musika-one\.vercel\.app$/,
-    ];
-    if (!origin || allowed.some(r => r.test(origin))) return cb(null, true);
-    return cb(null, true);
-  },
+  // Public API — allow cross-origin requests from the web player, APK, and
+  // any trusted frontend. The stream proxy additionally sets explicit
+  // Access-Control-Allow-* headers to support audio range requests.
+  origin: (_origin, cb) => cb(null, true),
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-expire"],

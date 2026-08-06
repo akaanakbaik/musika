@@ -240,7 +240,7 @@ strong{color:#d1d5db}
 
 // ===== OTP EMAIL =====
 function otpEmailHtml(code: string, email: string): string {
-  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Verifikasi Musika</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><img src="${LOGO_URL}" alt="Musika" width="64" height="64" style="display:block;margin:0 auto 10px auto;border-radius:16px"/><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Verifikasi alamat email</h1><p>Masukkan kode 6 digit di bawah ini di aplikasi <strong>Musika</strong> untuk memverifikasi <span class="highlight">${email}</span>.</p><div class="code-box"><div class="code">${code}</div><div class="expiry"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><circle cx="7" cy="7" r="6" stroke="#1DB954" stroke-width="1.5"/><path d="M7 4v3.5L9.5 9" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Kode berlaku <strong>5 menit</strong> &bull; Jangan bagikan kode ini ke siapa pun</div></div><div class="badge"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><rect x="3.5" y="6" width="7" height="6" rx="1" stroke="#1DB954" stroke-width="1.5"/><path d="M4.5 6V4.5a2.5 2.5 0 015 0V6" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Aman — Kode ini hanya untuk verifikasi akun Musika kamu</div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta kode ini, abaikan email ini. <br>Tidak perlu merespon email ini.</p></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
+  return `<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/><title>Verifikasi Musika</title><style>${EMAIL_STYLES}</style></head><body><div class="wrapper"><div class="card"><div class="header"><img src="${LOGO_URL}" alt="Musika" width="64" height="64" style="display:block;margin:0 auto 10px auto;border-radius:16px"/><div class="logo">musi<span>ka</span></div></div><div class="content"><h1>Verifikasi alamat email</h1><p>Masukkan kode 5 digit di bawah ini di aplikasi <strong>Musika</strong> untuk memverifikasi <span class="highlight">${email}</span>.</p><div class="code-box"><div class="code">${code}</div><div class="expiry"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><circle cx="7" cy="7" r="6" stroke="#1DB954" stroke-width="1.5"/><path d="M7 4v3.5L9.5 9" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Kode berlaku <strong>5 menit</strong> &bull; Jangan bagikan kode ini ke siapa pun</div></div><div class="badge"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;margin-right:4px"><rect x="3.5" y="6" width="7" height="6" rx="1" stroke="#1DB954" stroke-width="1.5"/><path d="M4.5 6V4.5a2.5 2.5 0 015 0V6" stroke="#1DB954" stroke-width="1.5" stroke-linecap="round"/></svg> Aman — Kode ini hanya untuk verifikasi akun Musika kamu</div><p style="font-size:12px;color:#525252">Jika kamu tidak meminta kode ini, abaikan email ini. <br>Tidak perlu merespon email ini.</p></div><div class="footer"><p class="footer-text">© ${new Date().getFullYear()} Musika &bull; Email ini dikirim ke ${email}</p></div></div></div></body></html>`;
 }
 
 // ===== WELCOME EMAIL =====
@@ -485,7 +485,10 @@ router.post("/auth/otp/verify", async (req, res) => {
       return res.status(429).json({ success: false, error: "Terlalu banyak percobaan. Silakan minta kode baru." });
     }
 
-    if (!crypto.timingSafeEqual(Buffer.from(otpRow.code), Buffer.from(code.trim()))) {
+    const submittedCode = String(code ?? "").trim();
+    const storedCode = String(otpRow.code);
+    if (!submittedCode || storedCode.length !== submittedCode.length ||
+        !crypto.timingSafeEqual(Buffer.from(storedCode), Buffer.from(submittedCode))) {
       await query(`UPDATE public.musika_otp_codes SET attempts = attempts + 1 WHERE id = $1`, [otpRow.id]);
       const remaining = 4 - otpRow.attempts;
       return res.status(400).json({ success: false, error: `Kode salah. Sisa ${remaining} percobaan.` });
@@ -596,7 +599,10 @@ router.post("/auth/reset-password", async (req, res) => {
     }
 
     const otpRow = rows[0];
-    if (!crypto.timingSafeEqual(Buffer.from(otpRow.code), Buffer.from(code.trim()))) {
+    const submittedCode = String(code ?? "").trim();
+    const storedCode = String(otpRow.code);
+    if (!submittedCode || storedCode.length !== submittedCode.length ||
+        !crypto.timingSafeEqual(Buffer.from(storedCode), Buffer.from(submittedCode))) {
       await query(`UPDATE public.musika_otp_codes SET attempts = attempts + 1 WHERE id = $1`, [otpRow.id]);
       return res.status(400).json({ success: false, error: "Kode yang dimasukkan salah" });
     }

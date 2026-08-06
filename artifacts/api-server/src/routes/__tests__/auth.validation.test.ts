@@ -83,10 +83,10 @@ describe("Auth Validation", () => {
     });
   });
 
-  describe("generateOTP (imported from auth.ts)", () => {
-    it("generates 6-digit code", () => {
+  describe("generateOTP", () => {
+    it("generates 5-digit code", () => {
       const code = generateOTP();
-      expect(code).toMatch(/^\d{6}$/);
+      expect(code).toMatch(/^\d{5}$/);
     });
 
     it("generates unique codes", () => {

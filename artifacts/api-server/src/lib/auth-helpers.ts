@@ -2,7 +2,8 @@
 // Shared between auth.ts routes and unit tests
 
 export function generateOTP(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  // 5-digit code (range 10000-99999) — matches the login/register OTP flow.
+  return Math.floor(10000 + Math.random() * 90000).toString();
 }
 
 export function detectBrowser(ua: string): string {

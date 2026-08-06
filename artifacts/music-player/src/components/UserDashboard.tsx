@@ -335,8 +335,8 @@ export default function UserDashboard({ open, onClose }: { open: boolean; onClos
               {deleteStep === "otp" && (
                 <div className="space-y-2">
                   <p className={`text-sm text-center ${textS}`}>Masukkan kode OTP dari email</p>
-                  <input value={deleteOtp} onChange={e => setDeleteOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    placeholder="000000" maxLength={6}
+                  <input value={deleteOtp} onChange={e => setDeleteOtp(e.target.value.replace(/\D/g, "").slice(0, 5))}
+                    placeholder="00000" maxLength={5}
                     className={`w-full text-center text-2xl font-mono tracking-widest py-3.5 rounded-2xl border ${border} ${card} ${textP} bg-transparent outline-none`}
                   />
                   <button onClick={handleDeleteAccount} disabled={deleteOtp.length < 6} className="w-full py-3 rounded-2xl font-bold text-sm bg-red-500 text-white disabled:opacity-40 transition-all active:scale-95">
